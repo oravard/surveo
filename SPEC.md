@@ -33,7 +33,7 @@ code et les tests puissent y renvoyer.
 | **Plan de salle** | Position de chaque poste de salle dans la salle. |
 | **Séance** | Période pendant laquelle un enseignant conduit une classe, dans une salle ou à distance, avec une heure de fin prévue. |
 | **Console** | Application de l'enseignant. |
-| **Restriction** | Tout changement de comportement d'un poste demandé pendant une séance : écran bloqué, filtrage web, application fermée, etc. |
+| **Restriction** | Tout changement de comportement d'un poste demandé pendant une séance : écran mis en pause, filtrage web, application fermée, etc. |
 | **État d'origine** | Les réglages qu'avait le poste avant que Surveo n'applique une restriction. |
 
 Le type d'un poste (de salle ou personnel) est choisi à l'installation.
@@ -203,8 +203,8 @@ Règle générale :
 - Sur un poste personnel, on se limite à observer et signaler, sans
   restriction.
 - Un binôme partage toujours un seul poste.
-- Un poste de salle allumé attend la séance et le prof le voit avant
-  d'ouvrir la séance.
+- Un poste de salle allumé attend la séance et l'enseignant le voit
+  avant d'ouvrir la séance.
 
 ### 1.11 Questions ouvertes
 
