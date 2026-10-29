@@ -17,6 +17,7 @@ code et les tests puissent y renvoyer.
 6. [Rôles et confiance](#6-rôles-et-confiance) (rôles, confiance sans inscription, appairage, audit)
 7. [Déploiement et relais](#7-déploiement-et-relais) (installation, relais, découverte, reconfiguration, mises à jour)
 8. [Données et RGPD](#8-données-et-rgpd) (minimisation, conservation, traçabilité, hébergement, droits)
+9. [Interface et ergonomie](#9-interface-et-ergonomie) (espaces, sélection et actions, retours, mode projection, côté élève, accessibilité)
 
 ---
 
@@ -1539,3 +1540,237 @@ spécification.
   traçabilité nominative (durée plafonnée, accès restreint) ?
 - Export des données d'un élève : format et périmètre pour répondre à
   une demande d'accès.
+
+---
+
+## 9. Interface et ergonomie
+
+Ce chapitre traduit l'exigence d'une « ergonomie soignée » en principes,
+en structure et en critères vérifiables. Il complète les vues de la
+salle définies au chapitre 1 (AFF-1 à AFF-4). La charte visuelle
+(couleurs, typographie, composants) relève d'IMPL.md.
+
+### 9.1 Vocabulaire
+
+| Terme | Sens |
+|---|---|
+| **Espace** | Partie de la console consacrée à une tâche : préparer, conduire la séance, administrer. |
+| **Vue** | Manière de regarder la salle dans l'espace Séance : plan, liste, mosaïque, focus (AFF-3). |
+| **Sélection** | Ensemble des postes sur lesquels portera la prochaine action. |
+| **Barre d'actions** | Barre qui propose les actions applicables à la sélection. |
+| **Panneau** | Zone latérale de la console où vivent les activités en cours (aide, TP, sondage, conversations). |
+| **Recherche d'actions** | Champ, ouvert au clavier, où l'on tape le nom d'une action ou d'un poste. |
+| **Retour d'action** | Compte rendu, poste par poste, de ce qu'une action a produit. |
+| **Mode projection** | Mode de la console pensé pour un écran projeté devant la classe, où rien de sensible ne s'affiche. |
+| **Panneau élève** | Point d'entrée unique de l'élève vers Surveo sur son poste. |
+
+### 9.2 Principes
+
+> **L'interface s'organise par tâche, pas par fonctionnalité. L'état de
+> la salle se lit d'un coup d'œil, et rien ne s'impose à l'écran sans
+> nécessité, ni chez l'enseignant ni chez l'élève.**
+
+- **ERGO-1** — La console est organisée par tâche (préparer, conduire,
+  administrer), et non par liste de fonctionnalités. Ajouter une
+  fonction ne doit pas ajouter un bouton ou une fenêtre de plus par
+  défaut.
+- **ERGO-2** — Il n'y a qu'une console. Les rôles ajoutent des espaces
+  et des actions (ROLE-3) ; aucun rôle n'a d'application distincte.
+- **ERGO-3** — Divulgation progressive : les actions fréquentes sont
+  visibles, les actions rares restent accessibles sous « Plus » ou par
+  la recherche d'actions.
+- **ERGO-4** — L'état de la salle se lit d'un coup d'œil : présence,
+  demandes d'aide, retards, restrictions en cours. Les signaux sont
+  hiérarchisés, du plus urgent au plus anodin, sans bruit permanent.
+- **ERGO-5** — Une même action porte le même nom, la même icône et se
+  trouve au même endroit partout. L'interface emploie le vocabulaire de
+  cette spécification (poste, séance, salle, enseignant, élève).
+- **ERGO-6** — Tous les textes sont en français, sans jargon technique.
+  Un message dit ce qui se passe et, si besoin, ce que l'on peut faire.
+- **ERGO-7** — Une notification discrète est préférée à une fenêtre
+  qui interrompt, sauf quand l'interruption est le but même de
+  l'action (écran en pause, message, sondage).
+
+### 9.3 Espaces
+
+- **ESPACE-1** — La console comporte trois espaces :
+  - **Préparer** : la bibliothèque de l'enseignant (modèles de TP,
+    sondages, messages prédéfinis, listes de sites et d'applications,
+    listes de classe) ;
+  - **Séance** : la salle, ses vues, la barre d'actions et le panneau ;
+  - **Administrer** : salles et plans, postes et déploiement, appairage,
+    outils techniques, modules sensibles, conservation, journal d'audit.
+- **ESPACE-2** — Séance est l'espace affiché à l'ouverture de la
+  console.
+- **ESPACE-3** — L'espace Administrer n'apparaît que pour une console
+  détenant le rôle technicien ou établissement (ROLE-3). Son contenu
+  suit les rôles détenus.
+- **ESPACE-4** — Changer d'espace ne ferme pas la séance. Tant qu'une
+  séance est ouverte, un bandeau la rappelle dans chaque espace et
+  permet d'y revenir d'un geste.
+
+### 9.4 Conduire la séance
+
+- **SEL-1** — Le principe est de **sélectionner, puis agir**.
+  L'enseignant sélectionne un ou plusieurs postes (clic, rectangle de
+  sélection, tout sélectionner, ou critère depuis la vue liste : « ceux
+  qui n'ont pas rendu »). La barre d'actions propose alors les actions
+  applicables.
+- **SEL-2** — Sans sélection, une action porte sur toute la séance, et
+  la barre l'indique explicitement :
+
+  > Toute la salle (24 postes)
+
+- **SEL-3** — La barre d'actions montre directement les actions
+  courantes (écran en pause, message, fichier, TP, sondage) et range les
+  autres sous « Plus ».
+- **SEL-4** — Quand une action ne s'applique qu'à une partie de la
+  sélection, la barre le dit au lieu de l'ignorer en silence :
+
+  > S'applique à 20 postes sur 24 : 4 postes personnels ne sont pas
+  > concernés.
+
+- **SEL-5** — La tuile d'un poste offre un menu court : les actions de
+  la barre, plus celles propres à un poste (identifier, focus,
+  conversation).
+- **PANNEAU-1** — Les activités en cours (demandes d'aide, TP, sondage,
+  diffusion, conversations) vivent dans le panneau latéral, pas dans des
+  fenêtres séparées.
+- **PANNEAU-2** — Le panneau se replie ; chaque activité garde alors un
+  compteur visible (« Aide (2) »).
+- **PANNEAU-3** — Pendant une séance, l'espace Séance n'ouvre aucune
+  fenêtre séparée. Lancer un TP ou un sondage se fait en choisissant
+  dans la bibliothèque sans quitter la séance ; créer ou modifier un
+  modèle se fait dans l'espace Préparer.
+- **RECH-1** — La recherche d'actions s'ouvre par un raccourci clavier.
+  On y tape le nom d'une action (« pause », « distribuer ») ou d'un
+  poste pour l'exécuter ou l'atteindre.
+- **RECH-2** — Les actions courantes ont un raccourci clavier, indiqué
+  dans leur infobulle.
+
+### 9.5 Retours et sûreté des actions
+
+- **RETOUR-1** — Toute action sur plusieurs postes donne un retour par
+  poste :
+
+  > Envoyé à 23 postes · 1 injoignable (poste 07).
+
+- **RETOUR-2** — Une action en attente, parce qu'un poste est
+  momentanément déconnecté, apparaît comme telle jusqu'à son aboutissement
+  (DISTRIB-4, MSG-5).
+- **RETOUR-3** — Les actions réversibles (écran en pause, filtrage,
+  fermeture du panneau…) s'appliquent sans confirmation préalable et
+  proposent « Annuler » pendant quelques secondes.
+- **RETOUR-4** — Seules les actions irréversibles ou de grande portée
+  demandent une confirmation : clôturer la séance, remplacer un TP
+  (TP-4), retirer une console (PAIR-5), actions techniques. La
+  confirmation énonce la portée :
+
+  > Clôturer la séance ? Les 24 postes reviendront à leur état
+  > d'origine.
+
+- **RETOUR-5** — Une erreur est expliquée en français, avec ce que
+  l'enseignant peut faire ensuite.
+
+### 9.6 Mode projection
+
+- **PROJ-1** — L'enseignant active ou désactive le mode projection d'un
+  geste, à tout moment.
+- **PROJ-2** — En mode projection :
+  - les images des écrans d'élèves sont masquées, sauf diffusion
+    volontaire (DIFF-1, DIFF-3) ;
+  - le contenu des conversations est masqué ;
+  - les alertes des modules sensibles n'apparaissent pas : seul un
+    indicateur neutre signale qu'une notification attend.
+- **PROJ-3** — La console montre en permanence à l'enseignant qu'il est
+  en mode projection.
+- **PROJ-4** — Quel que soit le mode, une alerte d'un module sensible
+  (chapitre 5) ne s'affiche jamais en grand ni dans une fenêtre
+  surgissante : elle passe par un indicateur discret que l'enseignant
+  ouvre lui-même.
+
+### 9.7 Interface côté élève
+
+- **AGENT-1** — Hors séance, l'agent n'affiche aucune fenêtre. Sur un
+  poste de salle, il se limite au plus à une icône discrète.
+- **AGENT-2** — Pendant la séance, l'indicateur REJ-4 est compact. Il
+  peut être réduit ou déplacé, mais jamais masqué entièrement.
+- **AGENT-3** — L'élève accède à tout ce que Surveo lui propose par un
+  **panneau élève** unique : TP, fichiers reçus, conversation, demande
+  d'aide, sondage en cours. Surveo ne multiplie pas les fenêtres sur le
+  poste.
+- **AGENT-4** — Seuls s'imposent au premier plan chez l'élève : l'écran
+  en pause (ECRAN-1), un message (MSG-2), un sondage (SONDAGE-2) et
+  l'indication d'examen (EXAM-1). Tout le reste passe par une
+  notification discrète (CHAT-4).
+- **AGENT-5** — Les textes affichés à l'élève sont courts et simples,
+  compréhensibles par un collégien.
+
+### 9.8 Accessibilité et confort
+
+- **ACCES-1** — La console et l'interface élève visent la conformité au
+  RGAA (référentiel général d'amélioration de l'accessibilité).
+- **ACCES-2** — Tout se fait au clavier seul.
+- **ACCES-3** — Thèmes clair et sombre, contrastes suffisants, taille du
+  texte réglable.
+- **ACCES-4** — Une information n'est jamais portée par la couleur
+  seule : l'état d'un poste s'accompagne toujours d'une icône ou d'un
+  texte.
+- **ACCES-5** — La console reste lisible et utilisable sur un portable,
+  un grand écran, un vidéoprojecteur et un tableau interactif (cibles
+  tactiles assez grandes).
+
+### 9.9 Critères d'acceptation
+
+1. Après avoir sélectionné des postes, l'enseignant met en pause,
+   envoie un message, distribue un fichier, lance un TP ou un sondage en
+   deux gestes au plus.
+2. Pendant une séance complète (TP, sondage, demandes d'aide,
+   conversation, diffusion), la console n'ouvre aucune fenêtre séparée.
+3. Une console qui ne détient que le rôle enseignant n'affiche pas
+   l'espace Administrer.
+4. Une action sur 25 postes dont un est injoignable affiche un retour
+   qui nomme le poste injoignable.
+5. Une mise en pause faite par erreur est annulée par « Annuler », sans
+   qu'aucune confirmation n'ait été demandée avant.
+6. En mode projection, aucune image d'écran d'élève (hors diffusion
+   volontaire), aucun contenu de conversation et aucune alerte sensible
+   n'est visible.
+7. Une alerte sensible n'ouvre jamais de fenêtre surgissante.
+8. Toutes les actions de l'espace Séance se font au clavier seul.
+9. L'état de chaque poste reste compréhensible quand l'écran est affiché
+   en niveaux de gris.
+10. Lors d'un test de prise en main, un enseignant qui découvre Surveo
+    ouvre une séance, place ses postes et lance un TP sans
+    documentation, dans une durée cible à fixer.
+
+### 9.10 Décisions
+
+29 octobre 2026 : chapitre proposé, à valider ; une maquette cliquable
+servira à éprouver la structure.
+
+- L'ergonomie est spécifiée par des principes et des critères
+  vérifiables ; la charte visuelle relève d'IMPL.md.
+- Distinction entre espaces (la tâche), vues (la façon de regarder la
+  salle) et rôles (les droits) ; une seule console.
+- Trois espaces : Préparer, Séance, Administrer ; Séance par défaut.
+- Conduite de séance par « sélectionner, puis agir », panneau latéral
+  plutôt que fenêtres, recherche d'actions au clavier.
+- « Annuler » préféré à la confirmation, sauf actions irréversibles ou
+  de grande portée.
+- Mode projection, et alertes sensibles jamais affichées en grand.
+- Côté élève, un panneau unique et le moins d'interruptions possible.
+
+### 9.11 Questions ouvertes
+
+- Maquette cliquable de la console : à réaliser avant l'implémentation
+  pour éprouver espaces, barre d'actions et panneau.
+- Le mode projection doit-il se proposer de lui-même quand un écran
+  supplémentaire est branché ?
+- Faut-il prévoir dès la v1 un usage tactile complet (tableau
+  interactif, tablette) ?
+- Durée cible du test de prise en main (critère 10).
+- L'enseignant peut-il personnaliser la barre d'actions (ordre, actions
+  favorites) ?
+- Noms définitifs des espaces (« Préparer », « Séance »,
+  « Administrer »).
