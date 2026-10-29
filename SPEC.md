@@ -290,10 +290,14 @@ s'appliquent pas à un poste personnel (RESTR-6, voir 2.7).
   - **liste de blocage** : les sites indiqués sont bloqués, le reste
     reste accessible ;
   - **tout bloquer** : aucun site accessible (« on ferme les écrans »).
-- **WEB-2** — Quand un site est bloqué, l'élève voit une page claire qui
-  l'explique, plutôt qu'une erreur technique :
+- **WEB-2** — Quand un site est bloqué, l'élève en est informé par une
+  notification de Surveo sur son poste :
 
-  > Accès suspendu pendant la séance de {enseignant}.
+  > {site} n'est pas accessible pendant la séance de {enseignant}.
+
+  Pour un site en HTTP, la page elle-même affiche ce message. Pour un
+  site en HTTPS, le navigateur affiche sa propre erreur, que la
+  notification explique.
 
 - **WEB-3** — Le filtrage ne vaut que pour la séance : à sa fin, l'accès
   d'origine du poste est rétabli (RESTR-1, RESTR-3). Surveo ne touche
@@ -372,6 +376,13 @@ s'appliquent pas à un poste personnel (RESTR-6, voir 2.7).
 - **MODE-4** — Le mode de déploiement ne change rien à la transparence
   (MAIT-1) ni au caractère temporaire des restrictions (RESTR-1) : il ne
   joue que sur leur robustesse.
+- **MODE-5** — Sans droits d'administration, le filtrage web est posé de
+  façon à cesser avec l'agent : si l'agent s'arrête, le poste retrouve
+  aussitôt l'accès au web, et la console signale l'arrêt de l'agent
+  comme une sortie de restriction (MODE-3).
+- **MODE-6** — Sans droits d'administration, le filtrage web ne porte que
+  sur les navigateurs. Les autres programmes (client de jeu, par
+  exemple) n'y sont pas soumis, et la console le dit.
 
 ### 2.9 Critères d'acceptation
 
@@ -380,7 +391,8 @@ s'appliquent pas à un poste personnel (RESTR-6, voir 2.7).
    ne répondent plus aux actions de l'élève ; les autres postes ne sont
    pas touchés.
 2. L'enseignant active un filtrage en liste d'autorisation : un site
-   permis s'ouvre, un autre site affiche la page d'accès suspendu.
+   permis s'ouvre ; un autre site est refusé et l'élève reçoit la
+   notification d'accès suspendu.
 3. À la fin de la séance, le filtrage disparaît et un réglage de proxy
    qui préexistait sur le poste est intact (RESTR-4).
 4. Une application interdite ouverte par un élève est fermée et l'élève
@@ -416,6 +428,11 @@ s'appliquent pas à un poste personnel (RESTR-6, voir 2.7).
   - Deux modes de déploiement assumés (sans admin / établissement), avec
     affichage du mode par poste et signalement des sorties de
     restriction.
+- 29 octobre 2026, après le prototype `sans-admin` (IMPL.md, 2.1) :
+  - WEB-2 : l'élève est prévenu d'un blocage par une notification de
+    Surveo, car une page explicative n'est possible qu'en HTTP.
+  - MODE-5 et MODE-6 : sans droits d'administration, le filtrage cesse
+    avec l'agent et ne porte que sur les navigateurs.
 
 ### 2.11 Questions ouvertes
 

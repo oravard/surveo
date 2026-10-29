@@ -11,3 +11,5 @@ prototypes/relais/keys/
 prototypes/capture/dist/
 prototypes/capture/*.jpg
 prototypes/capture/*.log
+prototypes/sans-admin/dist/
+prototypes/sans-admin/*.log

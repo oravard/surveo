@@ -29,7 +29,7 @@ SPEC.md concerné. Un prototype qui échoue remet en cause un choix
 |---|---|---|---|---|---|
 | 1 | `relais` | Un relais en Rust tient-il une salle de 30 agents connectés en sortie, avec des miniatures et des commandes, en chiffrant et en authentifiant par la clé d'établissement ? | 30 agents simulés sur un portable ; une commande arrive en moins de 200 ms ; miniatures à 1 image/s soutenues ; découverte du relais par annonce sur le réseau local | Chap. 6, 7 | Fait ([7.1](#71-prototype-relais)) |
 | 2 | `capture` | Peut-on capturer l'écran sans droits d'administration sous Windows, X11 et Wayland (GNOME, KDE, COSMIC), et à quel prix ? | Miniature à 1 image/s pour moins de 5 % d'un cœur ; sous Wayland, consentement demandé une seule fois puis mémorisé | Chap. 1 (AFF), 4 (DIFF) | En partie ([1.1](#11-prototype-capture)) : GNOME et KDE à vérifier |
-| 3 | `sans-admin` | Peut-on installer l'agent, le démarrer à l'ouverture de session, appliquer un proxy utilisateur et rétablir exactement le réglage d'origine, sans droits d'administration ? | Aucune élévation demandée ; réglage d'origine rétabli à l'identique ; liste des navigateurs qui respectent le proxy | Chap. 1 (RESTR-4), 2 (WEB, MODE), 7 (INST) | À faire |
+| 3 | `sans-admin` | Peut-on installer l'agent, le démarrer à l'ouverture de session, appliquer un proxy utilisateur et rétablir exactement le réglage d'origine, sans droits d'administration ? | Aucune élévation demandée ; réglage d'origine rétabli à l'identique ; liste des navigateurs qui respectent le proxy | Chap. 1 (RESTR-4), 2 (WEB, MODE), 7 (INST) | Fait ([2.1](#21-prototype-sans-admin)) |
 | 4 | `tauri` | La console Tauri peut-elle embarquer le relais et afficher le plan alimenté par le prototype 1 ? Le panneau élève peut-il s'afficher dans une vue web côté agent ? | Console fonctionnelle sous Windows et Linux ; WebView2 disponible sans droits d'administration sur les postes Windows visés | Chap. 7 (RELAIS-1), 9 | À faire |
 | 5 | `classifieur` | Le classifieur CamemBERT, converti en ONNX et quantifié, tourne-t-il sur un poste élève modeste depuis Rust ? | Moins de 150 Mo sur disque, moins de 300 Mo de mémoire, moins de 100 ms par phrase ; sinon, plan B avec un modèle distillé | Chap. 5 (IA-2, SENS-3) | À faire |
 | 6 | `antivirus` | Comment Microsoft Defender et les antivirus courants des établissements réagissent-ils à l'agent, signé ou non ? | Aucun blocage d'un binaire signé ; sinon, liste des comportements en cause et des ajustements | Chap. 5, 7 | À faire |
@@ -136,6 +136,90 @@ d'antivirus sont une condition du déploiement, pas un confort.
   alors afficher que l'écran du poste n'est pas visible).
 - Vue en grand (AFF-3, mode focus) : plus grande taille et plus forte
   cadence à la demande, puis retour à la miniature.
+
+## 2. Maîtrise de la classe
+
+### 2.1 Prototype `sans-admin`
+
+Code dans `prototypes/sans-admin/` (jetable). Un seul programme, dont
+les commandes suivent la vie d'un agent :
+
+| Commande | Rôle | SPEC.md |
+|---|---|---|
+| `installer` | Copie l'agent dans le dossier de l'utilisateur et l'inscrit au démarrage de session | INST-1, INST-6 |
+| `filtrer bloquer\|autoriser SITES` · `filtrer tout` `[--duree S] [--pac]` | Relève le réglage de proxy d'origine dans un journal, pose le proxy local, filtre jusqu'à la fin prévue, surveille le contournement, puis rétablit le réglage et le compare à l'origine | WEB-1, WEB-2, RESTR-1, RESTR-4, MODE-3 |
+| `demarrage` | Lancé à l'ouverture de session : si le journal existe, la séance précédente s'est mal terminée et le réglage d'origine est rétabli | RESTR-3, DEMAR-2 |
+| `etat`, `desinstaller` | Diagnostic ; désinstallation complète | INST-5 |
+
+**Réalisation**
+
+- **Proxy de l'utilisateur** : sous Windows, API WinINet
+  (`InternetSetOptionW`, options par connexion), qui règle le proxy du
+  seul utilisateur sans droits d'administration et prévient les
+  applications du changement ; sous Linux, clés `org.gnome.system.proxy`
+  par `gsettings`. Le réglage d'origine est relevé en entier (type,
+  serveur, exceptions, script de configuration) et restitué tel quel.
+- **Journal** : écrit avant de toucher au réglage, effacé après l'avoir
+  rétabli. S'il existe au démarrage, la séance précédente s'est mal
+  terminée.
+- **Démarrage de session** : clé `Run` de l'utilisateur sous Windows,
+  fichier dans `~/.config/autostart` sous Linux.
+- **Proxy local de filtrage** sur `127.0.0.1`, port choisi au hasard :
+  en HTTPS, il ne voit que le nom du site (requête `CONNECT`) ; en HTTP,
+  il voit la requête entière et peut répondre par une page.
+- **Deux façons de poser le proxy** : proxy fixe, ou script de
+  configuration automatique (PAC) servi par l'agent lui-même et qui dit
+  « proxy local, sinon connexion directe ».
+
+**Résultats** (29 octobre 2026)
+
+| Vérification | Linux (COSMIC, Fedora 44) | Windows (compte standard) |
+|---|---|---|
+| Installation et démarrage de session sans élévation | ✅ | ✅ aucune fenêtre UAC |
+| Réglage préexistant rétabli à l'identique | ✅ (un vrai proxy automatique préexistant) | ✅ |
+| Site HTTPS bloqué | ✅ erreur propre au navigateur | ✅ erreur propre au navigateur |
+| Site HTTP bloqué | ✅ page « Accès suspendu » | ✅ page « Accès suspendu » |
+| Élève qui coupe le proxy | ✅ détecté en 2 s | ✅ détecté |
+| Arrêt brutal, proxy fixe | Plus d'accès au web jusqu'à `demarrage`, qui rétablit l'origine | Idem ; rétabli à la reconnexion |
+| Arrêt brutal, script PAC | — | ✅ le web refonctionne aussitôt (connexion directe) |
+| Désinstallation | ✅ rien ne reste | ✅ |
+
+Le blocage reste effectif en mode PAC tant que l'agent tourne : un refus
+du proxy ne fait pas basculer le navigateur en connexion directe ;
+seule l'absence du proxy le fait.
+
+**Enseignements**
+
+1. **Une page explicative n'est possible qu'en HTTP.** Pour un site en
+   HTTPS, presque tous aujourd'hui, le proxy ne peut que refuser la
+   connexion et le navigateur affiche sa propre erreur. Afficher notre
+   page exigerait d'installer un certificat racine, ce qui est hors de
+   question. L'agent, lui, sait qu'il vient de bloquer un site : c'est à
+   lui d'en prévenir l'élève, par une notification (proposition de
+   modification de WEB-2).
+2. **Sans droits d'administration, l'élève peut arrêter l'agent.** Avec
+   un proxy fixe, le poste n'a alors plus accès au web jusqu'à la
+   prochaine ouverture de session, bien au-delà de la séance (contraire à
+   RESTR-1). Avec le script PAC, la restriction s'arrête avec l'agent :
+   le navigateur se connecte directement. Le mode PAC est donc à retenir
+   pour le déploiement sans droits d'administration ; la console signale
+   l'arrêt de l'agent comme une sortie de restriction (MODE-3).
+3. **Antivirus** : sur le poste de test, Avast bloque l'exécutable non
+   signé (il a fallu le désactiver) ; Microsoft Defender ne réagit pas.
+   Avast n'est pas installé au lycée de l'utilisateur, mais le risque
+   demeure ailleurs (prototype `antivirus`).
+
+**Limites**
+
+- Chrome sous Linux ne lit les réglages GNOME que dans un bureau qu'il
+  reconnaît (GNOME, KDE…) ; ailleurs il suit les variables
+  d'environnement. Le comportement des navigateurs sous COSMIC et sous
+  KDE reste à vérifier un par un.
+- Le réglage PAC restant après un arrêt brutal est inoffensif
+  (connexion directe), mais il n'est nettoyé qu'au démarrage suivant.
+- Un programme qui n'utilise pas le proxy du système (client de jeu,
+  certaines applications) n'est pas filtré : le filtrage sans droits
+  d'administration ne vaut que pour les navigateurs.
 
 ## 6. Rôles et confiance
 
