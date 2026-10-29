@@ -51,7 +51,7 @@ async fn main() -> Result<()> {
                 if agents > 0 {
                     next_id += 1;
                     flights.insert(next_id, InFlight { sent: Instant::now(), expected: agents, acks: 0 });
-                    let cmd = serde_json::to_string(&Ctl::Command { id: next_id, action: "ping".into() })?;
+                    let cmd = serde_json::to_string(&Ctl::Command { id: next_id, action: "ping".into(), text: None, target: None })?;
                     sink.send(Message::Text(cmd.into())).await?;
                 }
             }

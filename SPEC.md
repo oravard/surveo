@@ -1247,11 +1247,17 @@ intervenir poste par poste.
   établissement (CONF-4). Un relais hébergé peut servir plusieurs
   établissements sans mêler leurs flux.
 - **RELAIS-4** — Agents et consoles se connectent **en sortie** vers le
-  relais. Aucun poste n'a besoin d'accepter une connexion entrante, ce
-  qui lève les obstacles des réseaux séparés et des pare-feux.
+  relais. Aucun poste élève n'accepte de connexion entrante ni n'écoute
+  le réseau, ce qui lève les obstacles des réseaux séparés et des
+  pare-feux.
 - **RELAIS-5** — Une séance à distance (REJ-5) exige un relais joignable
   depuis Internet ; une salle autonome fonctionne avec un relais
   purement local, sans Internet.
+- **RELAIS-6** — Un relais installé dans la classe reçoit des
+  connexions. Sur un poste Windows, cela demande une autorisation du
+  pare-feu, accordée une fois par un administrateur ou par le service
+  informatique. Quand elle manque, la console le signale à l'enseignant
+  et propose un relais d'établissement ou hébergé.
 
 ### 7.4 Découverte du relais
 
@@ -1260,8 +1266,8 @@ intervenir poste par poste.
   2. une indication publiée sur le réseau de l'établissement (par
      exemple un enregistrement de service), si le service informatique
      l'a prévue ;
-  3. une annonce émise sur le réseau local par la console de
-     l'enseignant présente dans la salle ;
+  3. une recherche émise par le poste sur le réseau local, à laquelle
+     répond la console de l'enseignant présente dans la salle ;
   4. en dernier recours, l'annuaire de l'offre hébergée.
 - **DECOUV-2** — La découverte ne contourne jamais la confiance : un
   poste qui trouve un relais ne lui obéit que s'il appartient à son
@@ -1361,6 +1367,13 @@ intervenir poste par poste.
 - Mises à jour signées par le projet Surveo (contrairement à la version
   précédente, où du code était poussé sans signature avec une clé
   partagée) ; pas de mise à jour pendant une séance.
+- 29 octobre 2026, après le prototype `tauri` (IMPL.md, 7.2) :
+  - DECOUV-1 et RELAIS-4 : la découverte locale part du poste et le
+    relais répond ; un poste élève n'écoute jamais le réseau (le
+    pare-feu de Windows réagit sinon).
+  - RELAIS-6 : un relais dans la classe demande une autorisation du
+    pare-feu, accordée une fois par un administrateur ; à défaut, relais
+    d'établissement ou hébergé.
 
 ### 7.10 Questions ouvertes
 

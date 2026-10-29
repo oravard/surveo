@@ -1,0 +1,22 @@
+[package]
+name = "surveo-proto-eleve"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "EUPL-1.2"
+description = "Prototype 4 de la phase 2 (IMPL.md) : panneau élève dans une vue web, côté agent"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde_json = "1"
+anyhow = "1"
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+tokio = { version = "1", features = ["sync", "time", "macros"] }
+tokio-tungstenite = "0.26"
+surveo-proto-relais = { path = "../../relais" }
+
+[profile.release]
+debug = false

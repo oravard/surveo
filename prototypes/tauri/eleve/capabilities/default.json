@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "Panneau élève",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

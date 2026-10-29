@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Surveo · panneau élève (prototype 4)</title>
+<style>
+:root{
+  --bg:#F5F8F5; --surface:#FFFFFF; --ink:#1A2421; --muted:#56645F; --line:#D3DBD5;
+  --accent:#2346A3; --accent-soft:#E2E8F7; --accent-ink:#FFFFFF;
+  --help:#9A5A00; --help-soft:#FBEED6; --ok:#2B7549; --ok-soft:#DFF0E5; --late:#A3372B; --late-soft:#F8E2DE;
+  --sans:'Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:ui-monospace,'Cascadia Mono','DejaVu Sans Mono',Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root{
+  color-scheme:dark; --bg:#0F1412; --surface:#171E1B; --ink:#E2EAE5; --muted:#95A39D; --line:#2A3531;
+  --accent:#8FA7F3; --accent-soft:#1E2847; --accent-ink:#0D1324; --help:#EAA53F; --help-soft:#3A2A10;
+  --ok:#6FC492; --ok-soft:#163022; --late:#F0897B; --late-soft:#3E201C;
+}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.4;padding:12px;display:flex;flex-direction:column;gap:12px}
+button{font:inherit}
+.indic{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:7px 12px;font-size:14px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+.on .dot{background:var(--ok)}
+section{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+h2{margin:0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.msg{border:1px solid var(--line);border-radius:9px;padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.msg.new{border-color:var(--accent);background:var(--accent-soft)}
+.msg small{color:var(--muted);font-size:12px}
+.msg button{align-self:flex-end}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 12px;font-weight:700;cursor:pointer}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.state{font-size:13.5px}
+.state.ok{color:var(--ok)}
+.err{font-size:13px;color:var(--late);background:var(--late-soft);border-radius:8px;padding:8px}
+.empty{font-size:13px;color:var(--muted);margin:0}
+.ident{position:fixed;inset:0;display:none;align-items:center;justify-content:center;font-family:var(--mono);font-size:120px;font-weight:600;color:var(--accent-ink);background:var(--accent)}
+.ident.on{display:flex}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="indic" id="indic"><span class="dot" aria-hidden="true"></span><span id="indicText">Connexion au relais…</span></div>
+<div class="err" id="err" hidden></div>
+<section>
+  <h2>Messages de l'enseignant</h2>
+  <div id="msgs"><p class="empty">Aucun message pour l'instant.</p></div>
+</section>
+<section>
+  <h2>Aide</h2>
+  <div class="state" id="helpState"></div>
+  <button class="btn primary" id="helpBtn" type="button">✋ Demander de l'aide</button>
+</section>
+<div class="ident" id="ident" aria-hidden="true"></div>
+
+<script>
+const { listen } = window.__TAURI__.event;
+const { invoke } = window.__TAURI__.core;
+const $ = s => document.querySelector(s);
+let member = '', helpActive = false;
+const label = m => { const n = parseInt((m.match(/(\d+)$/) || [])[1], 10); return isNaN(n) ? m : String(n).padStart(2, '0'); };
+const now = () => new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+function state(s) {
+  if (s.member) member = s.member;
+  $('#indic').classList.toggle('on', !!s.connected);
+  $('#indicText').textContent = s.connected
+    ? `Poste ${label(member)} · relié à la séance de M. Durand`
+    : `Poste ${member ? label(member) : '…'} · ${s.info || 'hors séance, reconnexion…'}`;
+  $('#err').hidden = !s.error;
+  $('#err').textContent = s.error ? `Connexion impossible : ${s.error}` : '';
+  $('#helpBtn').disabled = !s.connected;
+}
+
+function renderHelp() {
+  $('#helpBtn').textContent = helpActive ? 'Annuler ma demande' : '✋ Demander de l’aide';
+  $('#helpBtn').className = helpActive ? 'btn' : 'btn primary';
+}
+
+$('#helpBtn').onclick = async () => {
+  try {
+    await invoke('help', { active: !helpActive });
+    helpActive = !helpActive;
+    $('#helpState').textContent = helpActive ? 'Demande envoyée · en attente de l’enseignant.' : '';
+    $('#helpState').className = 'state';
+    renderHelp();
+  } catch (e) { $('#helpState').textContent = String(e); }
+};
+
+listen('state', e => state(e.payload));
+invoke('status').then(s => { if (s && Object.keys(s).length) state(s); });
+listen('message', e => {
+  if ($('#msgs .empty')) $('#msgs').innerHTML = '';
+  const d = document.createElement('div');
+  d.className = 'msg new';
+  d.innerHTML = `<span class="t"></span><small>M. Durand · ${now()}</small><button class="btn" type="button">J'ai compris</button>`;
+  d.querySelector('.t').textContent = e.payload.text || '';
+  d.querySelector('button').onclick = () => { d.classList.remove('new'); d.querySelector('button').remove(); };
+  $('#msgs').prepend(d);
+});
+listen('identify', () => {
+  $('#ident').textContent = label(member);
+  $('#ident').classList.add('on');
+  setTimeout(() => $('#ident').classList.remove('on'), 4000);
+});
+listen('help_done', () => {
+  helpActive = false; renderHelp();
+  $('#helpState').textContent = 'M. Durand a pris en compte votre demande.';
+  $('#helpState').className = 'state ok';
+});
+renderHelp();
+</script>
+</body>
+</html>

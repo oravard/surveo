@@ -3,7 +3,10 @@
 //! aussitôt les commandes reçues.
 //!
 //! Usage : agent-sim [--keys keys] [--identities keys/agents.json]
-//!                   [--count 30] [--relay ADRESSE:PORT] [--thumb-kb 20]
+//!                   [--count 30] [--relay ADRESSE:PORT] [--thumb-kb 20] [--jpeg]
+//!
+//! Avec --jpeg, chaque agent envoie une vraie miniature JPEG (couleur propre
+//! au poste, bande qui se déplace) au lieu d'octets aléatoires.
 
 use anyhow::Result;
 use futures_util::{SinkExt, StreamExt};
@@ -20,6 +23,7 @@ async fn main() -> Result<()> {
     let ids_path = arg("--identities").map(PathBuf::from).unwrap_or_else(|| keys.join("agents.json"));
     let count: usize = arg("--count").map(|s| s.parse()).transpose()?.unwrap_or(30);
     let thumb_kb: usize = arg("--thumb-kb").map(|s| s.parse()).transpose()?.unwrap_or(20);
+    let jpeg = std::env::args().any(|a| a == "--jpeg");
 
     let trust = Arc::new(Trust::from_file(&load_json(&keys.join("etab.json"))?)?);
     let ids: Vec<IdentityFile> = load_json(&ids_path)?;
@@ -42,7 +46,7 @@ async fn main() -> Result<()> {
     let n = ids.len();
 
     let mut tasks = Vec::new();
-    for me in ids {
+    for (index, me) in ids.into_iter().enumerate() {
         let (relay, tls, trust, noise, auth_ms) = (relay.clone(), tls.clone(), trust.clone(), noise.clone(), auth_ms.clone());
         tasks.push(tokio::spawn(async move {
             let t0 = Instant::now();
@@ -54,7 +58,7 @@ async fn main() -> Result<()> {
                 }
             };
             auth_ms.lock().unwrap().push(t0.elapsed().as_secs_f64() * 1000.0);
-            run_agent(ws, &me.cert.member, &noise, thumb_kb).await;
+            run_agent(ws, &me.cert.member, &noise, thumb_kb, jpeg.then_some(index)).await;
         }));
     }
 
@@ -81,7 +85,8 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn run_agent(ws: ClientWs, member: &str, noise: &[u8], thumb_kb: usize) {
+async fn run_agent(ws: ClientWs, member: &str, noise: &[u8], thumb_kb: usize, jpeg: Option<usize>) {
+    let mut frame = 0u64;
     let (mut sink, mut stream) = ws.split();
     // Départ décalé pour ne pas synchroniser toutes les miniatures.
     let offset = Duration::from_millis(rand::thread_rng().gen_range(0..1000));
@@ -89,9 +94,16 @@ async fn run_agent(ws: ClientWs, member: &str, noise: &[u8], thumb_kb: usize) {
     loop {
         tokio::select! {
             _ = tick.tick() => {
-                let len = thumb_kb * 1024 * rand::thread_rng().gen_range(70..=130) / 100;
-                let start = rand::thread_rng().gen_range(0..noise.len() - len);
-                if sink.send(Message::Binary(noise[start..start + len].to_vec().into())).await.is_err() {
+                frame += 1;
+                let data = match jpeg {
+                    Some(index) => synthetic_jpeg(index, frame),
+                    None => {
+                        let len = thumb_kb * 1024 * rand::thread_rng().gen_range(70..=130) / 100;
+                        let start = rand::thread_rng().gen_range(0..noise.len() - len);
+                        noise[start..start + len].to_vec()
+                    }
+                };
+                if sink.send(Message::Binary(data.into())).await.is_err() {
                     break;
                 }
             }

@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Surveo · console (prototype 4)</title>
+<style>
+:root{
+  --bg:#ECF0EC; --surface:#FFFFFF; --surface-2:#F5F8F5; --ink:#1A2421; --muted:#56645F; --line:#D3DBD5;
+  --accent:#2346A3; --accent-soft:#E2E8F7; --accent-ink:#FFFFFF;
+  --help:#9A5A00; --help-soft:#FBEED6; --late:#A3372B; --late-soft:#F8E2DE; --ok:#2B7549; --ok-soft:#DFF0E5;
+  --bar:#1D2824; --bar-2:#2A3732; --bar-ink:#EEF3F0; --bar-muted:#A8B6B0;
+  --sans:'Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:ui-monospace,'Cascadia Mono','DejaVu Sans Mono',Menlo,Consolas,monospace;
+  --tw:128px;
+}
+@media (prefers-color-scheme: dark){:root{
+  color-scheme:dark; --bg:#0F1412; --surface:#171E1B; --surface-2:#1C2521; --ink:#E2EAE5; --muted:#95A39D; --line:#2A3531;
+  --accent:#8FA7F3; --accent-soft:#1E2847; --accent-ink:#0D1324; --help:#EAA53F; --help-soft:#3A2A10;
+  --late:#F0897B; --late-soft:#3E201C; --ok:#6FC492; --ok-soft:#163022; --bar:#26322D; --bar-2:#33413B;
+}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.4}
+button,input{font:inherit;color:inherit}
+.shell{height:100%;display:grid;grid-template-rows:auto 1fr auto;gap:10px;padding:10px 14px 12px}
+.topbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:9px 14px}
+.brand{font-weight:700;font-size:18px;display:flex;align-items:center;gap:8px}
+.brand i{width:20px;height:20px;border-radius:6px;background:var(--accent);display:inline-block}
+.chip{font-size:13px;padding:3px 10px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line);color:var(--muted)}
+.chip.ok{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.chip.err{background:var(--late-soft);color:var(--late);border-color:transparent}
+.spacer{flex:1}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.main{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:10px}
+.stage{min-height:0;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
+.board{max-width:520px;margin:0 auto 14px;text-align:center;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:3px solid var(--line);padding-bottom:4px}
+.plan{display:grid;grid-template-columns:repeat(3,var(--tw)) 30px repeat(3,var(--tw));gap:12px;width:max-content;margin:0 auto}
+.tile{display:flex;flex-direction:column;gap:5px;padding:7px;border-radius:9px;background:var(--surface);border:1px solid var(--line);text-align:left;cursor:pointer;position:relative}
+.tile:hover{border-color:var(--muted)}
+.tile.sel{outline:2.5px solid var(--accent);outline-offset:1px;background:var(--accent-soft)}
+.tile.off{opacity:.55;border-style:dashed}
+.tile.help{box-shadow:inset 4px 0 0 var(--help)}
+.tile img,.tile .ph{width:100%;aspect-ratio:16/9;border-radius:5px;object-fit:cover;background:var(--surface-2);display:block}
+.t-head{display:flex;justify-content:space-between;align-items:center;font-size:13px}
+.t-num{font-family:var(--mono);font-weight:600;font-size:16px}
+.flag{font-size:11px;font-weight:700;padding:1px 6px;border-radius:99px}
+.flag.help{background:var(--help-soft);color:var(--help)}
+.flag.off{background:var(--late-soft);color:var(--late)}
+.flag.ack{background:var(--ok-soft);color:var(--ok)}
+.ident{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-family:var(--mono);font-size:46px;font-weight:600;color:var(--accent);background:color-mix(in srgb,var(--surface) 82%,transparent);border-radius:9px}
+.tile.ident-on .ident{display:flex}
+.panel{min-height:0;overflow:auto;display:flex;flex-direction:column;gap:8px}
+.psec{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.psec h2{margin:0;font-size:14.5px;display:flex;justify-content:space-between}
+.psec h2 span{font-family:var(--mono);font-size:12.5px;padding:1px 7px;border-radius:99px;background:var(--surface-2);color:var(--muted)}
+.hq{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--line);border-radius:9px;font-size:14px}
+.hq b{flex:1}
+.log{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.empty{font-size:13px;color:var(--muted);margin:0}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 10px;cursor:pointer;font-weight:700;font-size:13.5px}
+.actionbar{position:relative;background:var(--bar);color:var(--bar-ink);border-radius:12px;padding:9px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.target{font-size:14px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.target button{background:transparent;border:0;color:var(--bar-muted);text-decoration:underline;cursor:pointer;font-size:13px;padding:0}
+.actions{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;align-items:center}
+.actions input{background:var(--bar-2);border:1px solid transparent;border-radius:8px;padding:7px 10px;color:var(--bar-ink);min-width:280px}
+.bbtn{background:var(--bar-2);border:0;color:var(--bar-ink);border-radius:8px;padding:7px 12px;font-weight:700;cursor:pointer}
+.bbtn.primary{background:var(--accent);color:var(--accent-ink)}
+.toasts{position:fixed;right:16px;bottom:84px;display:flex;flex-direction:column;gap:8px;max-width:420px;z-index:9}
+.toast{background:var(--bar);color:var(--bar-ink);border-radius:10px;padding:10px 12px;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.toast small{display:block;color:var(--bar-muted);margin-top:2px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <span class="brand"><i aria-hidden="true"></i>Surveo</span>
+    <span><b>Salle B204</b> · console avec relais intégré</span>
+    <span class="chip" id="relayChip">Démarrage du relais…</span>
+    <span class="spacer"></span>
+    <span class="chip" id="countChip">0 poste</span>
+  </header>
+
+  <div class="main">
+    <section class="stage" aria-label="Plan de salle">
+      <div class="board">Tableau · vidéoprojecteur</div>
+      <div class="plan" id="plan"></div>
+      <p class="empty" id="noAgent" style="text-align:center;margin-top:20px">En attente des postes : lancez des agents (agent-sim --jpeg, ou le panneau élève).</p>
+    </section>
+    <aside class="panel">
+      <section class="psec"><h2>Demandes d'aide <span id="helpCount">0</span></h2><div id="helpList"><p class="empty">Aucune demande en attente.</p></div></section>
+      <section class="psec"><h2>Journal</h2><div class="log" id="log"></div></section>
+    </aside>
+  </div>
+
+  <div class="actionbar">
+    <div class="target" id="target"></div>
+    <div class="actions">
+      <input id="msg" placeholder="Message aux postes…" aria-label="Texte du message" autocomplete="off">
+      <button class="bbtn primary" id="sendBtn">Envoyer</button>
+      <button class="bbtn" id="identBtn">Identifier</button>
+    </div>
+  </div>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+const { listen } = window.__TAURI__.event;
+const { invoke } = window.__TAURI__.core;
+const $ = s => document.querySelector(s);
+const tiles = new Map();      // poste → { el, img, online, help }
+const sel = new Set();
+let helpQ = [];               // file des demandes d'aide, dans l'ordre d'arrivée (AIDE-2)
+const pending = new Map();    // commande → { expected, acks, el, label }
+
+const num = m => { const n = parseInt((m.match(/(\d+)$/) || [])[1], 10); return isNaN(n) ? null : n; };
+const label = m => { const n = num(m); return n === null ? m : String(n).padStart(2, '0'); };
+const now = () => new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+function log(text) {
+  const d = document.createElement('div');
+  d.textContent = `${now()} · ${text}`;
+  $('#log').prepend(d);
+  while ($('#log').children.length > 40) $('#log').lastChild.remove();
+}
+
+function tile(member) {
+  if (tiles.has(member)) return tiles.get(member);
+  const el = document.createElement('button');
+  el.className = 'tile';
+  el.type = 'button';
+  const n = num(member);
+  if (n !== null) {
+    const r = Math.floor((n - 1) / 6), c = (n - 1) % 6;
+    el.style.gridRow = r + 1;
+    el.style.gridColumn = c < 3 ? c + 1 : c + 2;
+  }
+  el.innerHTML = `<span class="t-head"><span class="t-num">${label(member)}</span><span class="flags"></span></span><div class="ph"></div><span class="ident">${label(member)}</span>`;
+  el.onclick = () => { sel.has(member) ? sel.delete(member) : sel.add(member); el.classList.toggle('sel', sel.has(member)); renderTarget(); };
+  $('#plan').appendChild(el);
+  const t = { el, img: null, online: true, help: false, acked: false };
+  tiles.set(member, t);
+  $('#noAgent').hidden = true;
+  return t;
+}
+
+function renderTile(member) {
+  const t = tiles.get(member);
+  t.el.classList.toggle('off', !t.online);
+  t.el.classList.toggle('help', t.help);
+  const f = [];
+  if (t.help) f.push(`<span class="flag help">✋ ${helpQ.indexOf(member) + 1}</span>`);
+  if (!t.online) f.push('<span class="flag off">déconnecté</span>');
+  else if (t.acked) f.push('<span class="flag ack">✓ reçu</span>');
+  t.el.querySelector('.flags').innerHTML = f.join(' ');
+  t.el.setAttribute('aria-label', `Poste ${label(member)}${t.online ? '' : ', déconnecté'}${t.help ? ', demande d’aide' : ''}`);
+}
+
+function online() { return [...tiles].filter(([, t]) => t.online).map(([m]) => m); }
+
+function renderTarget() {
+  const n = online().length;
+  $('#countChip').textContent = `${n} poste${n > 1 ? 's' : ''} connecté${n > 1 ? 's' : ''}`;
+  $('#target').innerHTML = sel.size
+    ? `<strong>${sel.size} poste${sel.size > 1 ? 's' : ''} sélectionné${sel.size > 1 ? 's' : ''}</strong><button type="button" id="clear">Tout désélectionner</button>`
+    : `<strong>Toute la salle</strong><span>· ${n} poste${n > 1 ? 's' : ''} connecté${n > 1 ? 's' : ''}</span>`;
+  const c = $('#clear');
+  if (c) c.onclick = () => { sel.clear(); tiles.forEach(t => t.el.classList.remove('sel')); renderTarget(); };
+}
+
+function renderHelp() {
+  $('#helpCount').textContent = helpQ.length;
+  $('#helpList').innerHTML = helpQ.length ? '' : '<p class="empty">Aucune demande en attente.</p>';
+  helpQ.forEach((m, i) => {
+    const d = document.createElement('div');
+    d.className = 'hq';
+    d.innerHTML = `<span class="mono">${i + 1}</span><b>Poste ${label(m)}</b><button class="btn" type="button">Traité</button>`;
+    d.querySelector('button').onclick = async () => {
+      await invoke('send', { action: 'help_done', text: null, target: [m] });
+      helpQ = helpQ.filter(x => x !== m);
+      tiles.get(m).help = false; renderTile(m); renderHelp();
+      log(`demande du poste ${label(m)} marquée comme traitée`);
+    };
+    $('#helpList').appendChild(d);
+  });
+}
+
+function toast(text, small) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = `<span class="t"></span><small></small>`;
+  el.querySelector('.t').textContent = text;
+  el.querySelector('small').textContent = small || '';
+  $('#toasts').appendChild(el);
+  setTimeout(() => el.remove(), 7000);
+  return el;
+}
+
+/// Retour d'action poste par poste (SPEC.md, RETOUR-1).
+function updateRetour(p) {
+  const missing = p.targets.filter(m => !p.acks.has(m));
+  p.el.querySelector('.t').textContent = `${p.label} : reçu par ${p.acks.size}/${p.targets.length} poste${p.targets.length > 1 ? 's' : ''}`;
+  p.el.querySelector('small').textContent = missing.length && missing.length <= 6 ? `En attente : ${missing.map(m => 'poste ' + label(m)).join(', ')}` : '';
+}
+
+async function command(action, text, lbl) {
+  const targets = sel.size ? [...sel].filter(m => tiles.get(m).online) : online();
+  if (!targets.length) { toast('Aucun poste connecté.'); return; }
+  const id = await invoke('send', { action, text, target: sel.size ? [...sel] : null });
+  const p = { targets, acks: new Set(), label: lbl, el: toast(lbl, '') };
+  tiles.forEach(t => t.acked = false);
+  pending.set(id, p);
+  updateRetour(p);
+  log(`${lbl} → ${targets.length} poste${targets.length > 1 ? 's' : ''}`);
+}
+
+$('#sendBtn').onclick = () => {
+  const text = $('#msg').value.trim();
+  if (!text) { $('#msg').focus(); return; }
+  command('message', text, 'Message');
+  $('#msg').value = '';
+};
+$('#msg').addEventListener('keydown', e => { if (e.key === 'Enter') $('#sendBtn').click(); });
+$('#identBtn').onclick = () => {
+  command('identify', null, 'Identification');
+  const list = sel.size ? [...sel] : online();
+  list.forEach(m => tiles.get(m).el.classList.add('ident-on'));
+  setTimeout(() => tiles.forEach(t => t.el.classList.remove('ident-on')), 4000);
+};
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { sel.clear(); tiles.forEach(t => t.el.classList.remove('sel')); renderTarget(); }
+});
+
+function relayStatus(s) {
+  const chip = $('#relayChip');
+  if (s.ok) { chip.className = 'chip ok'; chip.textContent = `Relais « ${s.member} » · port ${s.port}`; log(`relais intégré démarré (port ${s.port}, clés : ${s.keys})`); }
+  else { chip.className = 'chip err'; chip.textContent = 'Relais non démarré'; log(`relais non démarré : ${s.error}`); }
+}
+
+listen('relay', e => relayStatus(e.payload));
+invoke('relay_status').then(s => { if (s && Object.keys(s).length) relayStatus(s); });
+listen('agent', e => {
+  const { member, online: on } = e.payload;
+  const t = tile(member); t.online = on;
+  if (!on) { helpQ = helpQ.filter(x => x !== member); t.help = false; renderHelp(); }
+  renderTile(member); renderTarget();
+  log(`poste ${label(member)} ${on ? 'a rejoint la séance' : 's’est déconnecté'}`);
+});
+listen('thumb', e => {
+  const t = tile(e.payload.member);
+  if (!t.online) { t.online = true; renderTile(e.payload.member); renderTarget(); }
+  if (!t.img) {
+    t.img = document.createElement('img');
+    t.img.alt = '';
+    t.el.querySelector('.ph').replaceWith(t.img);
+  }
+  t.img.src = 'data:image/jpeg;base64,' + e.payload.data;
+});
+listen('ack', e => {
+  const p = pending.get(e.payload.id);
+  if (!p) return;
+  p.acks.add(e.payload.agent);
+  const t = tiles.get(e.payload.agent);
+  if (t) { t.acked = true; renderTile(e.payload.agent); }
+  updateRetour(p);
+});
+listen('help', e => {
+  const { member, active } = e.payload;
+  const t = tile(member);
+  if (active && !helpQ.includes(member)) { helpQ.push(member); log(`poste ${label(member)} demande de l'aide`); }
+  if (!active) { helpQ = helpQ.filter(x => x !== member); log(`poste ${label(member)} a annulé sa demande`); }
+  t.help = helpQ.includes(member);
+  renderTile(member); renderHelp();
+});
+listen('denied', e => log(`connexion refusée : ${e.payload.reason}`));
+renderTarget();
+</script>
+</body>
+</html>

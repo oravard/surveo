@@ -19,6 +19,8 @@ use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::WebSocketStream;
 
+pub mod relay_core;
+
 /// Port UDP sur lequel le relais s'annonce (SPEC.md, DECOUV-1, niveau 3).
 pub const DISCOVERY_PORT: u16 = 47823;
 /// Étiquette de l'export de clé TLS qui lie l'authentification à la session.
@@ -169,10 +171,19 @@ pub enum Ctl {
     /// Relais → client : sa signature du défi du client.
     AuthOk { sig: String },
     Denied { reason: String },
-    /// Console → relais → agents.
-    Command { id: u64, action: String },
+    /// Console → relais → agents (tous, ou ceux de `target`).
+    Command {
+        id: u64,
+        action: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        target: Option<Vec<String>>,
+    },
     /// Agent → relais → consoles.
     Ack { id: u64, agent: String },
+    /// Agent → relais → consoles : l'élève demande de l'aide (SPEC.md, AIDE-1).
+    Help { agent: String, active: bool },
     /// Relais → consoles : nombre d'agents connectés.
     Presence { agents: usize },
 }
@@ -359,4 +370,38 @@ pub fn arg(name: &str) -> Option<String> {
         }
     }
     None
+}
+
+/// Miniature factice mais affichable : fond de la couleur du poste, une
+/// « fenêtre » claire et une bande qui avance à chaque image.
+pub fn synthetic_jpeg(index: usize, frame: u64) -> Vec<u8> {
+    let (w, h) = (320usize, 180usize);
+    let hue = (index * 47 % 360) as f32;
+    let (r, g, b) = hsv(hue, 0.45, 0.55);
+    let bar = (frame as usize * 23) % w;
+    let mut px = Vec::with_capacity(w * h * 3);
+    for y in 0..h {
+        for x in 0..w {
+            let in_window = (40..280).contains(&x) && (30..150).contains(&y);
+            let c = if x >= bar && x < bar + 12 {
+                (250, 250, 250)
+            } else if in_window {
+                if y < 42 { (205, 210, 218) } else if (y - 50) % 14 < 4 && x < 240 { (190, 195, 205) } else { (246, 247, 249) }
+            } else {
+                (r, g, b)
+            };
+            px.extend_from_slice(&[c.0, c.1, c.2]);
+        }
+    }
+    let mut out = Vec::new();
+    let _ = jpeg_encoder::Encoder::new(&mut out, 70).encode(&px, w as u16, h as u16, jpeg_encoder::ColorType::Rgb);
+    out
+}
+
+fn hsv(h: f32, s: f32, v: f32) -> (u8, u8, u8) {
+    let c = v * s;
+    let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
+    let (r, g, b) = match (h / 60.0) as u32 { 0 => (c, x, 0.0), 1 => (x, c, 0.0), 2 => (0.0, c, x), 3 => (0.0, x, c), 4 => (x, 0.0, c), _ => (c, 0.0, x) };
+    let m = v - c;
+    (((r + m) * 255.0) as u8, ((g + m) * 255.0) as u8, ((b + m) * 255.0) as u8)
 }

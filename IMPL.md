@@ -30,7 +30,7 @@ SPEC.md concerné. Un prototype qui échoue remet en cause un choix
 | 1 | `relais` | Un relais en Rust tient-il une salle de 30 agents connectés en sortie, avec des miniatures et des commandes, en chiffrant et en authentifiant par la clé d'établissement ? | 30 agents simulés sur un portable ; une commande arrive en moins de 200 ms ; miniatures à 1 image/s soutenues ; découverte du relais par annonce sur le réseau local | Chap. 6, 7 | Fait ([7.1](#71-prototype-relais)) |
 | 2 | `capture` | Peut-on capturer l'écran sans droits d'administration sous Windows, X11 et Wayland (GNOME, KDE, COSMIC), et à quel prix ? | Miniature à 1 image/s pour moins de 5 % d'un cœur ; sous Wayland, consentement demandé une seule fois puis mémorisé | Chap. 1 (AFF), 4 (DIFF) | En partie ([1.1](#11-prototype-capture)) : GNOME et KDE à vérifier |
 | 3 | `sans-admin` | Peut-on installer l'agent, le démarrer à l'ouverture de session, appliquer un proxy utilisateur et rétablir exactement le réglage d'origine, sans droits d'administration ? | Aucune élévation demandée ; réglage d'origine rétabli à l'identique ; liste des navigateurs qui respectent le proxy | Chap. 1 (RESTR-4), 2 (WEB, MODE), 7 (INST) | Fait ([2.1](#21-prototype-sans-admin)) |
-| 4 | `tauri` | La console Tauri peut-elle embarquer le relais et afficher le plan alimenté par le prototype 1 ? Le panneau élève peut-il s'afficher dans une vue web côté agent ? | Console fonctionnelle sous Windows et Linux ; WebView2 disponible sans droits d'administration sur les postes Windows visés | Chap. 7 (RELAIS-1), 9 | À faire |
+| 4 | `tauri` | La console Tauri peut-elle embarquer le relais et afficher le plan alimenté par le prototype 1 ? Le panneau élève peut-il s'afficher dans une vue web côté agent ? | Console fonctionnelle sous Windows et Linux ; WebView2 disponible sans droits d'administration sur les postes Windows visés | Chap. 7 (RELAIS-1), 9 | Fait ([7.2](#72-prototype-tauri)) : pare-feu à confirmer avec un compte standard |
 | 5 | `classifieur` | Le classifieur CamemBERT, converti en ONNX et quantifié, tourne-t-il sur un poste élève modeste depuis Rust ? | Moins de 150 Mo sur disque, moins de 300 Mo de mémoire, moins de 100 ms par phrase ; sinon, plan B avec un modèle distillé | Chap. 5 (IA-2, SENS-3) | À faire |
 | 6 | `antivirus` | Comment Microsoft Defender et les antivirus courants des établissements réagissent-ils à l'agent, signé ou non ? | Aucun blocage d'un binaire signé ; sinon, liste des comportements en cause et des ajustements | Chap. 5, 7 | À faire |
 
@@ -318,3 +318,77 @@ et un même relais peut servir plusieurs salles.
   retrait d'une console (PAIR-5), non traités par le prototype.
 - Le relais voit le contenu qu'il relaie : la question du chiffrement de
   bout en bout (SPEC.md, 6.10) reste ouverte.
+
+### 7.2 Prototype `tauri`
+
+Code dans `prototypes/tauri/` (jetable), deux applications Tauri 2 :
+
+| Application | Rôle |
+|---|---|
+| `console` | Console de l'enseignant. Elle **embarque le relais** du prototype 1 (RELAIS-1, relais dans la classe) et affiche le plan de salle avec les miniatures reçues. Sélection de postes, message avec retour poste par poste (RETOUR-1), identification des postes (SALLE-4), file des demandes d'aide (AIDE-1 à AIDE-4) |
+| `eleve` | Panneau élève dans une vue web, côté agent (AGENT-3). Il se connecte au relais comme un poste, trouve le relais par son annonce, se reconnecte seul, envoie une miniature par seconde, affiche les messages et l'identification, transmet les demandes d'aide |
+
+Pour cela, le cœur du relais du prototype 1 est passé dans sa
+bibliothèque (`relay_core`), partagé par le relais autonome et la
+console ; les commandes peuvent viser certains postes et porter un
+texte ; un message `Help` va de l'agent aux consoles ; `agent-sim
+--jpeg` envoie de vraies miniatures. Le prototype 1 passe toujours ses
+critères après ce changement.
+
+Les deux applications sont compilées pour Windows depuis Fedora (cible
+`x86_64-pc-windows-gnu`) ; chacune pèse 17 Mo et doit être accompagnée
+de `WebView2Loader.dll` (160 Ko), le lien avec le moteur WebView2 du
+poste.
+
+**Résultats** (29 octobre 2026)
+
+| Vérification | Linux (COSMIC) | Windows (compte standard) |
+|---|---|---|
+| Console et panneau élève s'ouvrent | ✅ | ✅ WebView2 présent, aucun droit d'administration demandé |
+| Postes trouvant la console par son annonce | ✅ 30 agents + panneau élève | ✅ 30 agents + panneau élève |
+| Demande d'aide, « Traité », message avec retour par poste, identification | ✅ | ✅ |
+| Antivirus | — | ⚠ Defender (SmartScreen) juge les deux exécutables non sûrs |
+| Pare-feu | — | ⚠ autorisation demandée pour les deux applications, avec un mot de passe |
+
+**Réseau réel** : la console tournant sur le poste Windows
+(192.168.1.176), 30 postes simulés lancés depuis le PC Linux l'ont
+trouvée par son annonce et s'y sont authentifiés en 52 ms. Avec 61
+postes (30 simulés sous Windows, le panneau élève, 30 depuis Linux),
+l'aller-retour d'une commande vaut 1,5 ms en médiane et 2,0 ms au 95ᵉ
+centile, sans acquittement manquant. La console, relais compris,
+consomme 0,1 à 0,5 % de CPU sous Windows. Cette mesure lève la
+principale limite du prototype `relais` (7.1).
+
+**Enseignements**
+
+1. **WebView2 est disponible** sur le poste Windows de test, avec un
+   compte standard : la console et le panneau élève peuvent être des
+   applications Tauri.
+2. **Signature indispensable** : après Avast (1.1, 2.1), Defender
+   signale à son tour les exécutables non signés.
+3. **Le relais dans la classe se heurte au pare-feu.** Une console qui
+   embarque le relais reçoit des connexions : Windows demande alors une
+   autorisation accompagnée d'un mot de passe, donc très probablement
+   des droits d'administration. Sur un poste d'enseignant sans droits
+   d'administration, les postes élèves ne pourraient pas joindre la
+   console. À confirmer avec un compte standard dont le mot de passe
+   diffère de celui de l'administrateur.
+4. **Le panneau élève a aussi déclenché le pare-feu**, parce qu'il
+   écoute les annonces du relais. Il vaut mieux inverser la découverte :
+   le poste envoie une recherche sur le réseau local et le relais lui
+   répond. Un poste élève n'aurait alors jamais rien à écouter.
+
+**Limites**
+
+- Poste Windows unique ; le cas d'un Windows sans WebView2 (Windows 10
+  ancien) n'est pas testé. Le moteur peut s'installer par utilisateur,
+  sans droits d'administration, à vérifier.
+- Pas de paquet d'installation : les exécutables sont lancés tels quels.
+
+**À reprendre dans l'implémentation**
+
+- Découverte par recherche émise par le poste, réponse du relais.
+- Autorisation du pare-feu accordée une fois à l'installation de la
+  console (par un administrateur ou le service informatique), ou relais
+  d'établissement ou hébergé quand elle est impossible.
+- Signature du code dès les premières versions diffusées.

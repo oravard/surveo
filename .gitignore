@@ -13,3 +13,6 @@ prototypes/capture/*.jpg
 prototypes/capture/*.log
 prototypes/sans-admin/dist/
 prototypes/sans-admin/*.log
+prototypes/tauri/dist/
+prototypes/tauri/*/target/
+prototypes/tauri/*/gen/
