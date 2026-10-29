@@ -14,7 +14,7 @@ code et les tests puissent y renvoyer.
 3. [Pédagogie](#3-pédagogie) (TP, rendus, distribution de fichiers, sondages)
 4. [Communication](#4-communication) (messages, chat, demande d'aide, diffusion d'écran)
 5. IA — à venir
-6. Rôles et confiance (appairage, droits) — à venir
+6. [Rôles et confiance](#6-rôles-et-confiance) (rôles, confiance sans inscription, appairage, audit)
 7. Déploiement et relais (installation, découverte, reconfiguration) — à venir
 8. Données et RGPD (traçabilité, conservation, modules sensibles) — à venir
 
@@ -811,3 +811,182 @@ ne transite directement d'un poste élève à un autre.
   élèves voient l'écran de l'enseignant.
 - Réactions rapides de l'élève sans ouvrir la conversation (« compris »,
   « bloqué ») — utile, ou superflu ?
+
+---
+
+## 6. Rôles et confiance
+
+Ce chapitre dit qui a le droit de faire quoi, et comment un poste décide
+à qui obéir, sans qu'aucune inscription ni connexion à Internet ne soit
+nécessaire.
+
+### 6.1 Vocabulaire
+
+| Terme | Sens |
+|---|---|
+| **Rôle** | Ensemble de droits. Une personne (via sa console) peut cumuler plusieurs rôles. |
+| **Établissement** | Regroupement des salles, des postes et des consoles qui se font mutuellement confiance. Au sens de Surveo, cela peut être un lycée, un centre de formation, ou simplement « la configuration d'un enseignant autonome ». |
+| **Clé d'établissement** | Secret propre à l'établissement, créé localement à sa mise en place. C'est elle qui fonde la confiance ; elle ne quitte jamais l'établissement et n'est pas commune à tous les clients de Surveo. |
+| **Console autorisée** | Console dont l'identité a été reconnue dans l'établissement, avec un ou plusieurs rôles. |
+| **Appairage** | Opération par laquelle une nouvelle console devient autorisée. |
+| **Code d'appairage** | Code court et temporaire qui permet d'autoriser une console. |
+
+### 6.2 Les trois rôles
+
+- **ROLE-1** — Surveo définit trois rôles :
+  - **Enseignant** : conduire des séances (chapitre 1), superviser,
+    appliquer les restrictions de séance (chapitre 2), mener les
+    activités pédagogiques (chapitre 3) et communiquer (chapitre 4).
+  - **Référent de salle / technicien** : gérer les plans de salle
+    (chapitre 1), déployer et mettre à jour les agents (chapitre 7),
+    appairer les consoles (6.5), et utiliser les outils techniques bruts
+    (console de commandes, gestionnaire de fichiers, liste des
+    processus).
+  - **Établissement** : activer les modules sensibles (chapitre 5),
+    régler la conservation des données et lire le journal d'audit
+    (chapitre 8), définir les listes communes (sites, applications
+    interdites).
+- **ROLE-2** — Une même personne peut cumuler les trois rôles. C'est le
+  cas courant d'un enseignant qui est aussi le référent de sa salle.
+- **ROLE-3** — Une console n'expose que les fonctions des rôles qu'elle
+  détient. Les autres ne sont pas affichées.
+- **ROLE-4** — Les outils techniques bruts (console de commandes,
+  fichiers, processus) relèvent du seul rôle technicien. L'enseignant
+  dispose à la place des actions cadrées des chapitres 2 à 4 (par
+  exemple fermer une application plutôt que parcourir les processus).
+- **ROLE-5** — Les actions des rôles technicien et établissement sont
+  consignées au journal d'audit (6.7).
+
+### 6.3 Confiance sans inscription
+
+> **Un poste n'obéit qu'aux consoles et relais autorisés dans son
+> établissement. Il n'y a ni compte en ligne, ni secret commun à toutes
+> les installations de Surveo.**
+
+- **CONF-1** — La clé d'établissement est créée localement à la mise en
+  place, sans Internet. Deux manières de démarrer une console :
+  - **créer un établissement** : la console en devient le premier
+    membre et détient d'office les trois rôles ;
+  - **rejoindre un établissement existant** au moyen d'un code
+    d'appairage (6.5).
+- **CONF-2** — Un poste est rattaché à un établissement (et, pour un
+  poste de salle, à une salle) lors de son installation (chapitre 7).
+- **CONF-3** — Un poste n'applique une restriction ou une action que si
+  elle provient d'une console autorisée de son établissement, détenant
+  le rôle correspondant. Toute autre demande est ignorée.
+- **CONF-4** — Le relais ne relaie qu'entre membres d'un même
+  établissement. Un relais hébergé peut servir plusieurs établissements
+  sans jamais mêler leurs flux.
+- **CONF-5** — La compromission d'une console n'expose que son
+  établissement, jamais les autres.
+
+### 6.4 Un enseignant autonome
+
+- **AUTO-1** — Un enseignant seul peut installer la console et des agents
+  et s'en servir immédiatement, sans compte et sans Internet, en
+  « créant un établissement » qui n'est que sa propre configuration
+  (CONF-1).
+- **AUTO-2** — Il détient alors les trois rôles (CONF-1) et peut, plus
+  tard, rejoindre ou fusionner avec l'établissement de son lycée si
+  besoin (question ouverte, 6.10).
+
+### 6.5 Appairer une console
+
+- **PAIR-1** — Pour autoriser une nouvelle console, un détenteur du rôle
+  établissement ou technicien engendre un code d'appairage, court et à
+  durée de vie limitée.
+- **PAIR-2** — La nouvelle console saisit ce code et devient autorisée,
+  avec le ou les rôles que le code accorde.
+- **PAIR-3** — Par défaut, un code n'accorde que le rôle enseignant. Les
+  rôles technicien et établissement doivent être accordés
+  explicitement.
+- **PAIR-4** — L'appairage se fait par l'intermédiaire du relais de
+  l'établissement : il fonctionne hors ligne tant que le relais est
+  joignable localement.
+- **PAIR-5** — Un détenteur du rôle établissement peut retirer
+  l'autorisation d'une console (départ d'un collègue, poste perdu).
+  Celle-ci n'est alors plus obéie par les postes (CONF-3).
+- **PAIR-6** — Les appairages et retraits sont consignés au journal
+  d'audit (6.7).
+
+### 6.6 Plusieurs consoles sur une séance
+
+- **MULTI-1** — Conformément à SEANCE-2, plusieurs consoles autorisées
+  peuvent se joindre à une séance ouverte.
+- **MULTI-2** — La séance a un **responsable** : l'enseignant qui l'a
+  ouverte. Lui seul mène les activités pédagogiques et clôt la séance.
+- **MULTI-3** — Les autres consoles agissent dans la limite de leurs
+  rôles : une console technicien observe et peut intervenir
+  techniquement, une autre console enseignant peut observer et
+  communiquer. La console responsable voit qui est joint à la séance.
+- **MULTI-4** — Tout ce que fait une console sur la séance reste soumis à
+  la transparence (MAIT-1) et au journal d'audit pour les rôles
+  technicien et établissement.
+
+### 6.7 Journal d'audit
+
+- **AUDIT-1** — Surveo tient un journal des actions sensibles : appairage
+  et retrait de consoles (6.5), restrictions appliquées (MAIT-4),
+  activation des modules sensibles et actions techniques (console de
+  commandes, fichiers, processus).
+- **AUDIT-2** — Chaque entrée indique qui, quoi, quand, et sur quel
+  poste.
+- **AUDIT-3** — Le journal d'audit est lisible par le rôle
+  établissement. Sa conservation et son éventuelle purge relèvent du
+  chapitre « Données et RGPD ».
+- **AUDIT-4** — Le journal d'audit protège aussi l'enseignant et le
+  technicien : il atteste de ce qui a été fait, et par qui.
+
+### 6.8 Critères d'acceptation
+
+1. Une console qui ne détient que le rôle enseignant n'affiche ni la
+   console de commandes, ni le gestionnaire de fichiers, ni la liste des
+   processus.
+2. Un enseignant installe la console et un agent, sans Internet et sans
+   compte, et peut aussitôt ouvrir une séance : il détient les trois
+   rôles.
+3. Un poste ignore une demande d'action émanant d'une console d'un autre
+   établissement.
+4. Un collègue devient enseignant en saisissant un code d'appairage ; ce
+   code ne lui donne ni le rôle technicien ni le rôle établissement.
+5. Après le retrait de l'autorisation d'une console, les postes
+   n'exécutent plus ses demandes.
+6. Une action technique (ouverture de la console de commandes sur un
+   poste) apparaît au journal d'audit avec son auteur et son horodatage.
+7. Deux consoles sont jointes à une même séance ; seule la console
+   responsable peut lancer un TP et clôturer la séance.
+
+### 6.9 Décisions
+
+29 octobre 2026 : chapitre proposé, à valider.
+
+- Trois rôles cumulables : enseignant, référent de salle / technicien,
+  établissement. Une même personne les cumule souvent.
+- Confiance fondée sur une clé d'établissement locale, sans inscription
+  ni secret commun à toutes les installations (contrairement à la
+  version précédente, où une clé unique était partagée par tous les
+  clients).
+- Un enseignant autonome crée son propre établissement et détient les
+  trois rôles.
+- Appairage d'une console par code court et temporaire, via le relais,
+  hors ligne ; retrait possible par le rôle établissement.
+- Outils techniques bruts réservés au rôle technicien ; l'enseignant
+  dispose des actions cadrées des chapitres 2 à 4.
+- Une séance a un responsable (celui qui l'ouvre) ; les autres consoles
+  agissent dans la limite de leurs rôles.
+- Journal d'audit des actions sensibles, lisible par le rôle
+  établissement.
+
+### 6.10 Questions ouvertes
+
+- Fusion de deux établissements : un enseignant autonome qui rejoint le
+  dispositif de son lycée garde-t-il ses salles et ses séances ?
+- Perte de la clé d'établissement : quelle procédure de récupération,
+  sans introduire de porte dérobée ?
+- Un relais hébergé doit-il pouvoir prouver à un établissement qu'il ne
+  lit pas ses flux (chiffrement de bout en bout entre consoles et
+  postes) ?
+- Rôles plus fins au sein de l'établissement (chef d'établissement vs
+  délégué à la protection des données) : utile en v1, ou plus tard ?
+- Un élève a-t-il, lui aussi, une forme d'identité de confiance, ou
+  reste-t-il entièrement du côté « poste » (chapitre 1) ?
