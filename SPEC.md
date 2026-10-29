@@ -10,7 +10,7 @@ code et les tests puissent y renvoyer.
 ## Chapitres
 
 1. [Séance et salle](#1-séance-et-salle)
-2. Maîtrise de la classe (blocage, filtrage, applications, mode examen) — à venir
+2. [Maîtrise de la classe](#2-maîtrise-de-la-classe) (écran, filtrage web, applications, mode examen)
 3. [Pédagogie](#3-pédagogie) (TP, rendus, distribution de fichiers, sondages)
 4. [Communication](#4-communication) (messages, chat, demande d'aide, diffusion d'écran)
 5. IA — à venir
@@ -218,6 +218,216 @@ Règle générale :
   et des postes personnels ?
 - Liste de classe : où elle est conservée, et comment on l'importe
   (fichier, ENT).
+
+---
+
+## 2. Maîtrise de la classe
+
+Ce chapitre regroupe les actions par lesquelles l'enseignant cadre
+l'usage des postes pendant la séance : mettre les écrans en pause,
+filtrer l'accès au web, fermer ou interdire des applications, passer la
+séance en mode examen.
+
+Toutes ces actions sont des **restrictions** au sens du chapitre 1 :
+elles obéissent aux règles RESTR-1 à RESTR-6. En particulier, elles sont
+liées à la séance, ne survivent jamais à sa fin prévue, et ne
+s'appliquent pas à un poste personnel (RESTR-6, voir 2.7).
+
+### 2.1 Vocabulaire
+
+| Terme | Sens |
+|---|---|
+| **Écran en pause** | Écran de l'élève recouvert par Surveo, affichant un message, le temps que l'enseignant le décide. |
+| **Filtrage web** | Limitation des sites accessibles depuis le poste pendant la séance. |
+| **Liste d'autorisation** | Ensemble des sites accessibles ; tout le reste est bloqué. |
+| **Liste de blocage** | Ensemble des sites bloqués ; tout le reste est accessible. |
+| **Application interdite** | Application que l'enseignant ne veut pas voir ouverte pendant la séance. |
+| **Mode examen** | État de la séance où l'accès est restreint à l'essentiel, pour une évaluation. |
+| **Mode de déploiement** | Manière dont l'agent est installé sur un poste : sans droits d'administration, ou déployé par l'établissement (voir 2.8). |
+
+### 2.2 Principe
+
+> **Une restriction est toujours visible par l'élève, bornée par la
+> séance, et réversible. Surveo ne cache jamais à l'élève qu'une
+> restriction s'applique.**
+
+- **MAIT-1** — Quand une restriction s'applique à un poste, l'élève en
+  est informé sur son poste (message, bandeau ou icône selon le cas).
+  C'est le prolongement de l'indicateur de séance (REJ-4).
+- **MAIT-2** — L'enseignant applique et lève chaque restriction à tout
+  moment, sur tous les postes de la séance ou sur une sélection.
+- **MAIT-3** — Ce qu'une restriction peut réellement garantir dépend du
+  mode de déploiement du poste (2.8). La console indique ce mode pour
+  chaque poste, afin que l'enseignant sache sur quoi il peut compter.
+- **MAIT-4** — Toute restriction appliquée pendant une séance est
+  consignée (qui, quoi, quand), pour le journal d'audit du chapitre
+  « Données et RGPD ». Cela protège aussi l'enseignant en cas de
+  contestation.
+
+### 2.3 Écran en pause
+
+- **ECRAN-1** — L'enseignant met en pause l'écran des postes de la
+  séance ou d'une sélection. Pendant la pause, l'écran est recouvert et
+  l'élève ne peut plus agir sur son poste.
+- **ECRAN-2** — L'écran en pause affiche un message. Par défaut :
+
+  > Écran mis en pause par {enseignant}.
+
+  L'enseignant peut y mettre son propre texte (« Regardez le tableau »).
+- **ECRAN-3** — L'enseignant lève la pause. Elle est aussi levée à la
+  fin de la séance (RESTR-1) et, en cas de redémarrage du poste, ne
+  revient pas de force si l'enseignant l'a entre-temps levée.
+- **ECRAN-4** — La mise en pause n'interrompt pas le travail en cours
+  sur le poste : rien n'est fermé, le travail de l'élève reste tel quel
+  en attendant la reprise.
+
+### 2.4 Filtrage web
+
+- **WEB-1** — L'enseignant limite l'accès au web pendant la séance, selon
+  l'un de ces réglages :
+  - **liste d'autorisation** : seuls les sites indiqués sont accessibles ;
+  - **liste de blocage** : les sites indiqués sont bloqués, le reste
+    reste accessible ;
+  - **tout bloquer** : aucun site accessible (« on ferme les écrans »).
+- **WEB-2** — Quand un site est bloqué, l'élève voit une page claire qui
+  l'explique, plutôt qu'une erreur technique :
+
+  > Accès suspendu pendant la séance de {enseignant}.
+
+- **WEB-3** — Le filtrage ne vaut que pour la séance : à sa fin, l'accès
+  d'origine du poste est rétabli (RESTR-1, RESTR-3). Surveo ne touche
+  pas à un filtrage déjà en place sur le poste (RESTR-4).
+- **WEB-4** — L'enseignant enregistre des listes réutilisables (par
+  exemple « sites du TP réseau »), qui le suivent d'une salle à l'autre.
+
+### 2.5 Applications
+
+- **APP-1** — L'enseignant voit les applications ouvertes sur un poste
+  (AFF-2) et peut en fermer une. L'élève est prévenu de la fermeture :
+
+  > {application} a été fermée par {enseignant}.
+
+- **APP-2** — L'enseignant définit une liste d'applications interdites
+  pendant la séance (jeux, par exemple). Une application interdite qui
+  s'ouvre est fermée, et l'élève en est informé comme en APP-1.
+- **APP-3** — Surveo ne ferme jamais une application du système ni une
+  application nécessaire au travail demandé : la liste d'interdiction ne
+  porte que sur des applications nommées par l'enseignant.
+- **APP-4** — Les listes d'applications interdites sont réutilisables et
+  suivent l'enseignant, comme les listes de sites (WEB-4).
+- **APP-5** — La fermeture d'applications ne vaut que pour la séance :
+  après la séance, plus aucune application n'est fermée par Surveo.
+
+### 2.6 Mode examen
+
+- **EXAM-1** — Le mode examen est un état de la séance, activé et
+  désactivé par l'enseignant, affiché en permanence à l'élève :
+
+  > Séance d'examen en cours jusqu'à {heure de fin}.
+
+- **EXAM-2** — En mode examen, par défaut :
+  - l'accès web est en liste d'autorisation (WEB-1), vide par défaut
+    (aucun site), l'enseignant ajoutant les sites permis ;
+  - les applications interdites de la séance sont fermées (2.5) ;
+  - aucune analyse par l'IA n'a lieu (chapitre 5) ;
+  - la conversation élève↔enseignant reste possible (chapitre 4), pour
+    signaler un problème ; les autres communications entre élèves
+    restent, comme toujours, absentes.
+- **EXAM-3** — Le mode examen a une heure de fin, comme la séance. Il
+  s'arrête au plus tard à la fin de la séance et rétablit l'état
+  d'origine du poste (RESTR-1).
+- **EXAM-4** — Les rendus en mode examen suivent le chapitre 3, avec
+  l'heure de dépôt qui fait foi (RENDU-8).
+- **EXAM-5** — Sur un poste personnel, le mode examen ne restreint rien
+  (2.7) : Surveo se limite à observer et à signaler à l'enseignant si le
+  poste quitte le contexte de l'examen. L'enseignant est prévenu de
+  cette limite au lancement.
+
+### 2.7 Poste personnel
+
+- **PERSO-3** — Aucune restriction de ce chapitre ne s'applique à un
+  poste personnel (RESTR-6) : ni écran en pause, ni filtrage web, ni
+  fermeture d'application. Sur ces postes, Surveo observe et signale
+  seulement (PERSO-1).
+
+### 2.8 Modes de déploiement
+
+- **MODE-1** — Un poste fonctionne selon l'un de deux modes de
+  déploiement, fixé à l'installation :
+  - **sans droits d'administration** : l'agent est installé dans le
+    compte de l'utilisateur. Les restrictions s'appliquent dans la
+    session de l'élève (filtrage par le réglage de l'utilisateur,
+    fermeture d'applications de sa session). C'est une maîtrise
+    **coopérative** : un élève averti peut tenter de la contourner.
+  - **déployé par l'établissement** : l'agent est installé par le
+    service informatique. Les restrictions sont plus difficiles à
+    contourner.
+- **MODE-2** — La console indique, pour chaque poste, son mode de
+  déploiement, afin que l'enseignant sache ce que la restriction
+  garantit vraiment (MAIT-3).
+- **MODE-3** — Si un poste sort d'une restriction (par exemple l'élève
+  coupe le filtrage de sa session), la console le signale à
+  l'enseignant plutôt que de le masquer.
+- **MODE-4** — Le mode de déploiement ne change rien à la transparence
+  (MAIT-1) ni au caractère temporaire des restrictions (RESTR-1) : il ne
+  joue que sur leur robustesse.
+
+### 2.9 Critères d'acceptation
+
+1. L'enseignant met en pause l'écran d'une sélection de postes avec un
+   message personnalisé : les postes concernés affichent ce message et
+   ne répondent plus aux actions de l'élève ; les autres postes ne sont
+   pas touchés.
+2. L'enseignant active un filtrage en liste d'autorisation : un site
+   permis s'ouvre, un autre site affiche la page d'accès suspendu.
+3. À la fin de la séance, le filtrage disparaît et un réglage de proxy
+   qui préexistait sur le poste est intact (RESTR-4).
+4. Une application interdite ouverte par un élève est fermée et l'élève
+   en est informé ; après la séance, cette même application peut être
+   ouverte sans que Surveo n'intervienne.
+5. En mode examen, seuls les sites autorisés sont accessibles, aucune
+   analyse par l'IA n'a lieu, et l'élève voit en permanence l'indication
+   d'examen avec l'heure de fin.
+6. Sur un poste personnel, activer le mode examen ou un filtrage ne
+   restreint rien : la console le signale à l'enseignant.
+7. La console affiche le mode de déploiement de chaque poste ; un poste
+   sans droits d'administration dont l'élève a coupé le filtrage apparaît
+   comme étant sorti de la restriction.
+
+### 2.10 Décisions
+
+29 octobre 2026 : chapitre proposé à partir de la version précédente,
+à valider.
+
+- Repris de la version précédente : écran recouvert avec message,
+  filtrage web par proxy sans droits d'administration, « tout bloquer »
+  (isolement réseau), listes d'applications interdites avec fermeture.
+- Décisions :
+  - Toute restriction est visible par l'élève (MAIT-1) et consignée
+    (MAIT-4).
+  - Le filtrage web propose liste d'autorisation, liste de blocage ou
+    tout bloquer.
+  - La fermeture d'applications remplace l'accès brut à la liste des
+    processus pour l'enseignant ; la liste des processus relèvera du
+    rôle technicien (chapitre 6).
+  - Le mode examen est un état de la séance : liste d'autorisation vide
+    par défaut, applications interdites fermées, IA coupée, heure de fin.
+  - Deux modes de déploiement assumés (sans admin / établissement), avec
+    affichage du mode par poste et signalement des sorties de
+    restriction.
+
+### 2.11 Questions ouvertes
+
+- Qui définit les listes d'applications interdites et de sites : chaque
+  enseignant, ou aussi l'établissement pour toute une salle (chapitre
+  6) ?
+- En mode examen, faut-il figer aussi la fermeture de la fenêtre du TP
+  ou interdire le changement de compte de session ?
+- Quand un élève sort d'une restriction sur un poste sans droits
+  d'administration (MODE-3), faut-il une simple alerte, ou aussi une
+  trace dans le journal d'audit ?
+- Faut-il un réglage « liste d'autorisation » commun à tout
+  l'établissement, inspiré des listes de référence des ENT ?
 
 ---
 
