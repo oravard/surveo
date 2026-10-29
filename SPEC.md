@@ -16,7 +16,7 @@ code et les tests puissent y renvoyer.
 5. [IA](#5-ia) (classifieurs locaux, détection de harcèlement et de détresse, IA générative)
 6. [Rôles et confiance](#6-rôles-et-confiance) (rôles, confiance sans inscription, appairage, audit)
 7. [Déploiement et relais](#7-déploiement-et-relais) (installation, relais, découverte, reconfiguration, mises à jour)
-8. Données et RGPD (traçabilité, conservation, modules sensibles) — à venir
+8. [Données et RGPD](#8-données-et-rgpd) (minimisation, conservation, traçabilité, hébergement, droits)
 
 ---
 
@@ -1358,3 +1358,184 @@ intervenir poste par poste.
   publiques, dans l'esprit open source ?
 - Un même poste physique peut-il porter deux rattachements (deux
   établissements partageant une salle) ?
+
+---
+
+## 8. Données et RGPD
+
+Ce chapitre rassemble les règles sur les données : ce que Surveo
+collecte, où cela se trouve, combien de temps, et qui en répond. Il
+donne corps au principe de minimisation présent dans toute la
+spécification.
+
+### 8.1 Vocabulaire
+
+| Terme | Sens |
+|---|---|
+| **Donnée personnelle** | Toute information se rapportant à une personne identifiée ou identifiable (un élève, un enseignant). |
+| **Responsable de traitement** | Celui qui décide des traitements et en répond : l'établissement. |
+| **Sous-traitant** | Celui qui traite des données pour le compte du responsable : l'exploitant d'un relais hébergé. |
+| **Minimisation** | Ne collecter que ce qui est nécessaire, pas davantage. |
+| **Conservation** | Durée pendant laquelle une donnée est gardée. |
+| **Traçabilité** | Historique des séances et des travaux, conservé sur option (8.5). |
+| **AIPD** | Analyse d'impact relative à la protection des données. |
+
+### 8.2 Principes
+
+> **Par défaut, rien ne subsiste après la séance. Ce qui est conservé
+> l'est parce que l'établissement l'a explicitement choisi, pour une
+> durée qu'il fixe.**
+
+- **RGPD-1** — Surveo collecte le minimum nécessaire à chaque fonction
+  (minimisation).
+- **RGPD-2** — L'établissement est responsable de traitement. Il décide
+  des modules activés (chapitres 5 et 6), des conservations (8.4) et des
+  destinataires des alertes (SENS-5).
+- **RGPD-3** — Les flux en direct (écrans, étiquettes d'activité,
+  conversations) sont éphémères : ils ne sont pas enregistrés, sauf
+  décision de traçabilité (8.5).
+- **RGPD-4** — Les traitements sont transparents pour les élèves :
+  indicateur de séance permanent (REJ-4), information renforcée pour les
+  modules sensibles (SENS-4).
+- **RGPD-5** — S'agissant pour l'essentiel de mineurs, Surveo retient par
+  défaut l'option la plus protectrice à chaque choix.
+
+### 8.3 Quelles données, où
+
+- **DATA-1** — Inventaire des données manipulées par Surveo :
+
+  | Donnée | Emplacement | Conservation par défaut |
+  |---|---|---|
+  | Écran en direct, étiquettes d'activité | En transit, affiché à la console | Non conservé |
+  | Conversations, messages, demandes d'aide | En transit via le relais | Non conservé |
+  | Rendus de TP | Côté enseignant / établissement | Conservé (8.4) |
+  | Configuration (salles, plans, listes, rattachements) | Relais / établissement | Conservé tant qu'utile |
+  | Journal d'audit | Relais / établissement | Selon réglage (8.6) |
+  | Alertes de modules sensibles | Vers les destinataires désignés | Non conservé par défaut (8.7) |
+  | Contenu frappé au clavier | Sur le poste élève uniquement | Jamais transmis ni conservé (IA-2, SENS-3) |
+
+- **DATA-2** — En déploiement local ou sur un serveur de l'établissement,
+  aucune donnée ne quitte l'établissement.
+- **DATA-3** — Avec un relais hébergé, les seules données qui transitent
+  hors de l'établissement sont celles nécessaires au relais ; leur
+  localisation suit 8.8.
+
+### 8.4 Conservation
+
+- **CONSERV-1** — Par défaut, seules deux catégories subsistent après une
+  séance : les **rendus de TP** et la **configuration**. Tout le reste
+  est éphémère (RGPD-3).
+- **CONSERV-2** — L'établissement fixe les durées de conservation des
+  rendus, du journal d'audit et, le cas échéant, de la traçabilité.
+  Surveo propose des durées par défaut prudentes.
+- **CONSERV-3** — À l'échéance d'une durée de conservation, la donnée est
+  supprimée automatiquement.
+- **CONSERV-4** — L'enseignant peut supprimer les rendus d'une séance ;
+  l'établissement peut supprimer toute donnée dont il répond.
+
+### 8.5 Traçabilité
+
+- **TRACE-1** — La traçabilité est une **option de l'établissement,
+  désactivée par défaut**. Activée, elle conserve un historique des
+  séances : quand, quelle salle, quel enseignant, quels TP, quels
+  rendus, quels sondages.
+- **TRACE-2** — Elle sert surtout aux centres de formation (preuve de
+  présence, de rendu, suivi d'acquisition). Elle n'est pas nécessaire à
+  l'usage courant d'un enseignant.
+- **TRACE-3** — L'historique peut être rattaché à un élève lorsque son
+  identité a été renseignée (chapitre 1) ; sinon il reste au niveau du
+  poste et de la séance.
+- **TRACE-4** — Sa durée de conservation est réglée par l'établissement
+  (CONSERV-2) et l'historique est exportable.
+
+### 8.6 Journal d'audit
+
+- **AUDITC-1** — Le journal d'audit (chapitre 6) conserve les actions
+  sensibles pour la durée fixée par l'établissement.
+- **AUDITC-2** — Il ne contient pas le contenu des échanges ni des
+  travaux : seulement qui a fait quoi, quand, sur quel poste.
+- **AUDITC-3** — Il est lisible par le rôle établissement et exportable.
+
+### 8.7 Modules sensibles
+
+- **SENSC-1** — Les alertes du module de détection de harcèlement et de
+  détresse (chapitre 5) ne sont **pas conservées par défaut** : elles
+  sont transmises aux destinataires, puis oubliées par Surveo.
+- **SENSC-2** — L'établissement peut choisir de journaliser le fait
+  qu'une alerte a été émise (horodatage, poste, niveau), sans son
+  contenu, s'il le juge utile et l'a inscrit à son AIPD.
+- **SENSC-3** — L'activation d'un module sensible requiert une AIPD
+  (SENS-7). Surveo fournit un modèle d'AIPD (8.9).
+
+### 8.8 Hébergement et localisation
+
+- **HEBERG-1** — En relais local ou d'établissement, les données restent
+  sous le seul contrôle de l'établissement.
+- **HEBERG-2** — Le relais hébergé est situé en France. L'exploitant du
+  relais hébergé agit comme sous-traitant et un contrat de
+  sous-traitance encadre son intervention.
+- **HEBERG-3** — Surveo cherche à ce qu'un relais, y compris hébergé, en
+  voie le moins possible : le chiffrement de bout en bout entre consoles
+  et postes est un objectif (question ouverte, 6.10).
+
+### 8.9 Droits des personnes et kit RGPD
+
+- **DROITS-1** — Les demandes des personnes (information, accès,
+  effacement) sont adressées à l'établissement, responsable de
+  traitement. Surveo lui donne les moyens d'y répondre (retrouver et
+  supprimer les données d'un élève, exporter la traçabilité).
+- **DROITS-2** — Surveo fournit un **kit RGPD** : fiche pour le registre
+  des traitements, modèle d'AIPD pour les modules sensibles, et modèle
+  de contrat de sous-traitance pour l'offre hébergée.
+- **DROITS-3** — Le kit et la documentation sont en français (voir
+  VISION.md, crédibilité).
+
+### 8.10 Critères d'acceptation
+
+1. Après une séance ordinaire, sans traçabilité, il ne reste des données
+   que les rendus et la configuration ; les écrans, conversations et
+   étiquettes d'activité n'ont pas été enregistrés.
+2. En déploiement local, aucune donnée ne sort de l'établissement
+   pendant une séance complète.
+3. À l'échéance de la durée de conservation fixée, les rendus concernés
+   sont supprimés automatiquement.
+4. Traçabilité désactivée, aucun historique de séance n'est conservé ;
+   activée, l'historique d'une séance est présent et exportable.
+5. Une alerte de détresse est transmise à ses destinataires sans être
+   conservée, sauf si l'établissement a choisi d'en journaliser
+   l'émission, et alors sans son contenu.
+6. Le contenu frappé au clavier n'apparaît dans aucune donnée conservée
+   ni transmise.
+7. L'établissement peut retrouver et supprimer les données rattachées à
+   un élève nommé.
+
+### 8.11 Décisions
+
+29 octobre 2026 : chapitre proposé, à valider.
+
+- Minimisation : par défaut, rien ne subsiste après la séance, hormis
+  rendus et configuration.
+- L'établissement est responsable de traitement ; l'exploitant d'un
+  relais hébergé est sous-traitant, encadré par contrat, en France.
+- Flux en direct éphémères ; contenu frappé jamais transmis ni conservé.
+- Traçabilité en option, désactivée par défaut, pensée pour les centres
+  de formation.
+- Alertes sensibles non conservées par défaut ; journalisation
+  éventuelle sans contenu, sous AIPD.
+- Durées de conservation réglées par l'établissement, suppression
+  automatique à l'échéance.
+- Kit RGPD fourni (registre, AIPD, contrat de sous-traitance), en
+  français.
+
+### 8.12 Questions ouvertes
+
+- Durées de conservation par défaut à proposer (rendus, journal d'audit,
+  traçabilité).
+- Portée exacte du chiffrement de bout en bout (lié à 6.10) : quelles
+  données le relais doit-il pouvoir voir pour fonctionner ?
+- Consentement et information : quel partage entre la charte
+  informatique de l'établissement et un message affiché par Surveo ?
+- Élèves mineurs : faut-il des garde-fous supplémentaires sur la
+  traçabilité nominative (durée plafonnée, accès restreint) ?
+- Export des données d'un élève : format et périmètre pour répondre à
+  une demande d'accès.
