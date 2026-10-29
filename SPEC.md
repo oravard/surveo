@@ -1746,8 +1746,10 @@ salle définies au chapitre 1 (AFF-1 à AFF-4). La charte visuelle
 
 ### 9.10 Décisions
 
-29 octobre 2026 : chapitre proposé, à valider ; une maquette cliquable
-servira à éprouver la structure.
+29 octobre 2026 : chapitre proposé, puis structure validée sur une
+maquette cliquable (console enseignant et poste élève, données
+fictives). L'organisation est jugée claire, et l'accès à toute action
+courante en deux gestes au plus est confirmé comme un point fort.
 
 - L'ergonomie est spécifiée par des principes et des critères
   vérifiables ; la charte visuelle relève d'IMPL.md.
@@ -1763,8 +1765,9 @@ servira à éprouver la structure.
 
 ### 9.11 Questions ouvertes
 
-- Maquette cliquable de la console : à réaliser avant l'implémentation
-  pour éprouver espaces, barre d'actions et panneau.
+- Densité : la maquette montre beaucoup d'informations à la fois. À
+  surveiller lors du test de prise en main (critère 10), en particulier
+  sur un écran de portable.
 - Le mode projection doit-il se proposer de lui-même quand un écran
   supplémentaire est branché ?
 - Faut-il prévoir dès la v1 un usage tactile complet (tableau
