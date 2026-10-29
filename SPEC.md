@@ -15,7 +15,7 @@ code et les tests puissent y renvoyer.
 4. [Communication](#4-communication) (messages, chat, demande d'aide, diffusion d'écran)
 5. IA — à venir
 6. [Rôles et confiance](#6-rôles-et-confiance) (rôles, confiance sans inscription, appairage, audit)
-7. Déploiement et relais (installation, découverte, reconfiguration) — à venir
+7. [Déploiement et relais](#7-déploiement-et-relais) (installation, relais, découverte, reconfiguration, mises à jour)
 8. Données et RGPD (traçabilité, conservation, modules sensibles) — à venir
 
 ---
@@ -990,3 +990,194 @@ nécessaire.
   délégué à la protection des données) : utile en v1, ou plus tard ?
 - Un élève a-t-il, lui aussi, une forme d'identité de confiance, ou
   reste-t-il entièrement du côté « poste » (chapitre 1) ?
+
+---
+
+## 7. Déploiement et relais
+
+Ce chapitre dit comment on installe Surveo, comment un poste trouve le
+relais de son établissement, et comment on reconfigure une salle sans
+intervenir poste par poste.
+
+### 7.1 Vocabulaire
+
+| Terme | Sens |
+|---|---|
+| **Agent** | Programme installé sur un poste élève. |
+| **Console** | Application de l'enseignant. |
+| **Relais** | Programme par lequel passent tous les échanges d'un établissement. Les agents et les consoles s'y connectent en sortie ; le relais n'a pas besoin de joindre les postes. |
+| **Rattachement** | Lien qui associe un poste à un établissement, et, pour un poste de salle, à une salle. |
+| **Configuration de poste** | Réglages d'un poste poussés par le relais : son relais, sa salle, son type, les listes communes. |
+| **Paquet d'installation** | Fichier d'installation de l'agent, portant déjà le rattachement. |
+| **Découverte** | Façon dont un poste trouve le relais à joindre. |
+
+### 7.2 Installation des agents
+
+- **INST-1** — L'agent s'installe selon l'un des deux modes de
+  déploiement (MODE-1) :
+  - **sans droits d'administration** : installé dans le compte de
+    l'utilisateur, démarré au niveau de la session, sans service
+    système ni pilote ;
+  - **déployé par l'établissement** : installé par le service
+    informatique, par ses moyens habituels (stratégie de groupe, image
+    système, outil de gestion de parc).
+- **INST-2** — À l'installation, un poste est rattaché à un
+  établissement (CONF-2) et reçoit son type : **poste de salle** ou
+  **poste personnel** (chapitre 1). Un poste de salle est aussi rattaché
+  à une salle.
+- **INST-3** — Le rattachement est porté par le paquet d'installation :
+  un référent prépare un paquet pour une salle donnée, et chaque poste
+  installé avec ce paquet rejoint l'établissement et la salle sans
+  saisie manuelle.
+- **INST-4** — Un poste personnel s'installe avec un paquet, un code de
+  séance ou un lien fourni par l'enseignant, sans droits
+  d'administration.
+- **INST-5** — Désinstaller l'agent remet le poste dans son état
+  d'origine (RESTR-4) et le détache de l'établissement.
+- **INST-6** — L'agent ne réclame aucun droit qu'il n'utilise pas. En
+  mode sans administration, il n'obtient aucune capacité réservée à
+  l'administrateur.
+
+### 7.3 Le relais
+
+- **RELAIS-1** — Un même relais peut être installé à trois endroits,
+  selon ce qu'autorise l'établissement :
+  - **dans la classe**, au sein de la console de l'enseignant, pour une
+    salle autonome sans aucun serveur ;
+  - **sur un serveur de l'établissement** ;
+  - **sur un serveur hébergé** (en France pour l'offre hébergée).
+- **RELAIS-2** — Le relais est le même programme dans les trois cas ;
+  seul son emplacement change.
+- **RELAIS-3** — Un relais ne relaie qu'entre membres d'un même
+  établissement (CONF-4). Un relais hébergé peut servir plusieurs
+  établissements sans mêler leurs flux.
+- **RELAIS-4** — Agents et consoles se connectent **en sortie** vers le
+  relais. Aucun poste n'a besoin d'accepter une connexion entrante, ce
+  qui lève les obstacles des réseaux séparés et des pare-feux.
+- **RELAIS-5** — Une séance à distance (REJ-5) exige un relais joignable
+  depuis Internet ; une salle autonome fonctionne avec un relais
+  purement local, sans Internet.
+
+### 7.4 Découverte du relais
+
+- **DECOUV-1** — Un poste trouve son relais en essayant, dans l'ordre :
+  1. le relais qu'il connaît déjà (dernière configuration reçue) ;
+  2. une indication publiée sur le réseau de l'établissement (par
+     exemple un enregistrement de service), si le service informatique
+     l'a prévue ;
+  3. une annonce émise sur le réseau local par la console de
+     l'enseignant présente dans la salle ;
+  4. en dernier recours, l'annuaire de l'offre hébergée.
+- **DECOUV-2** — La découverte ne contourne jamais la confiance : un
+  poste qui trouve un relais ne lui obéit que s'il appartient à son
+  établissement (CONF-3).
+- **DECOUV-3** — Un poste personnel n'utilise que le relais indiqué par
+  le code ou le lien de séance (INST-4) : il ne cherche pas de relais sur
+  un réseau local.
+
+### 7.5 Reconfiguration d'une salle
+
+> **On ne reconfigure jamais une salle poste par poste : une
+> modification se décide une fois et se propage.**
+
+- **RECONF-1** — Le relais pousse une configuration de poste aux agents
+  connectés. La configuration est signée au nom de l'établissement ; un
+  agent n'applique qu'une configuration dont la signature est reconnue
+  (CONF-3).
+- **RECONF-2** — Pour changer de relais (par exemple passer d'un relais
+  hébergé à un relais de classe), le référent le décide une fois depuis
+  la console. La nouvelle adresse est poussée aux postes connectés, qui
+  basculent ensuite sur le nouveau relais.
+- **RECONF-3** — Un poste éteint ou absent au moment du changement
+  retrouve le bon relais à son prochain démarrage grâce à la chaîne de
+  découverte (7.4).
+- **RECONF-4** — La modification du plan de salle, du type d'un poste ou
+  des listes communes passe aussi par une configuration poussée, sans
+  réinstallation.
+- **RECONF-5** — Les reconfigurations sont consignées au journal d'audit
+  (AUDIT-1).
+
+### 7.6 Mises à jour
+
+- **MAJ-1** — Les agents et les consoles se mettent à jour par le relais,
+  sans intervention sur chaque poste.
+- **MAJ-2** — Une mise à jour n'est installée que si elle est signée par
+  le projet Surveo. Un relais, même compromis, ne peut pas pousser du
+  code non signé.
+- **MAJ-3** — Une mise à jour en mode sans administration s'installe dans
+  le compte de l'utilisateur, sans droits d'administrateur.
+- **MAJ-4** — Une mise à jour ne s'applique pas pendant une séance en
+  cours sur le poste : elle attend la fin de la séance ou le prochain
+  démarrage, pour ne pas interrompre le travail.
+- **MAJ-5** — L'établissement peut retarder ou figer les versions, pour
+  rester maître de son parc.
+
+### 7.7 Démarrage et état propre
+
+- **DEMAR-1** — Au démarrage, l'agent se lance au niveau de la session
+  (mode sans administration) ou au niveau du système (déployé par
+  l'établissement), puis cherche son relais (7.4).
+- **DEMAR-2** — Conformément à RESTR-3, l'agent remet d'abord le poste
+  dans son état d'origine, avant toute connexion ; il ne réapplique des
+  restrictions que s'il rejoint une séance en cours.
+- **DEMAR-3** — Un poste de salle qui ne trouve aucune séance ouverte
+  reste en veille et apparaît *allumé* dans la console (SALLE-1).
+
+### 7.8 Critères d'acceptation
+
+1. Un enseignant sans droits d'administration installe l'agent sur un
+   poste élève et la console sur son poste, et supervise la salle le jour
+   même.
+2. Un poste installé avec le paquet d'une salle rejoint l'établissement
+   et la salle sans aucune saisie manuelle.
+3. Dans une salle autonome, sans serveur ni Internet, les postes
+   trouvent le relais intégré à la console de l'enseignant et rejoignent
+   la séance.
+4. Le référent change le relais d'une salle depuis la console ; les
+   postes allumés basculent sans être touchés un par un, et un poste qui
+   était éteint rejoint le bon relais à son démarrage suivant.
+5. Un relais hébergé sert deux établissements : aucun poste de l'un ne
+   voit un flux de l'autre.
+6. Une mise à jour d'agent non signée, poussée par un relais, est
+   refusée par les postes.
+7. Une mise à jour disponible pendant une séance ne s'installe qu'après
+   la fin de la séance.
+8. Après désinstallation, le poste ne porte plus aucune trace de Surveo
+   et ses réglages sont ceux d'origine.
+
+### 7.9 Décisions
+
+29 octobre 2026 : chapitre proposé, à valider.
+
+- Architecture inversée par rapport à la version précédente : les agents
+  et consoles se connectent en sortie vers un relais, au lieu que la
+  console ouvre des ports entrants sur chaque poste.
+- Relais unique, installable dans la classe, sur un serveur de
+  l'établissement ou sur un serveur hébergé.
+- Installation possible sans droits d'administration (démarrage au
+  niveau de la session) ; déploiement par l'établissement également
+  possible.
+- Rattachement porté par le paquet d'installation (établissement,
+  salle, type de poste).
+- Chaîne de découverte à quatre niveaux pour trouver le relais sans
+  configuration manuelle.
+- Reconfiguration par configuration signée poussée depuis le relais : on
+  ne touche jamais les postes un par un.
+- Mises à jour signées par le projet Surveo (contrairement à la version
+  précédente, où du code était poussé sans signature avec une clé
+  partagée) ; pas de mise à jour pendant une séance.
+
+### 7.10 Questions ouvertes
+
+- Préparation des paquets : outil dédié dans la console (rôle
+  technicien), ou procédure documentée pour le service informatique ?
+- Découverte sur le réseau de l'établissement : quel mécanisme exact
+  proposer aux services informatiques (enregistrement de service,
+  réglage poussé par stratégie de groupe) ?
+- Bascule de relais : faut-il une période où le poste accepte
+  l'ancien et le nouveau relais, pour les postes à connexion
+  intermittente ?
+- Vérification des mises à jour : builds reproductibles et signatures
+  publiques, dans l'esprit open source ?
+- Un même poste physique peut-il porter deux rattachements (deux
+  établissements partageant une salle) ?
