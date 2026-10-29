@@ -28,7 +28,7 @@ SPEC.md concerné. Un prototype qui échoue remet en cause un choix
 | Ordre | Prototype | Question | Critère de réussite | SPEC.md | État |
 |---|---|---|---|---|---|
 | 1 | `relais` | Un relais en Rust tient-il une salle de 30 agents connectés en sortie, avec des miniatures et des commandes, en chiffrant et en authentifiant par la clé d'établissement ? | 30 agents simulés sur un portable ; une commande arrive en moins de 200 ms ; miniatures à 1 image/s soutenues ; découverte du relais par annonce sur le réseau local | Chap. 6, 7 | Fait ([7.1](#71-prototype-relais)) |
-| 2 | `capture` | Peut-on capturer l'écran sans droits d'administration sous Windows, X11 et Wayland (GNOME, KDE, COSMIC), et à quel prix ? | Miniature à 1 image/s pour moins de 5 % d'un cœur ; sous Wayland, consentement demandé une seule fois puis mémorisé | Chap. 1 (AFF), 4 (DIFF) | À faire |
+| 2 | `capture` | Peut-on capturer l'écran sans droits d'administration sous Windows, X11 et Wayland (GNOME, KDE, COSMIC), et à quel prix ? | Miniature à 1 image/s pour moins de 5 % d'un cœur ; sous Wayland, consentement demandé une seule fois puis mémorisé | Chap. 1 (AFF), 4 (DIFF) | En partie ([1.1](#11-prototype-capture)) : GNOME et KDE à vérifier |
 | 3 | `sans-admin` | Peut-on installer l'agent, le démarrer à l'ouverture de session, appliquer un proxy utilisateur et rétablir exactement le réglage d'origine, sans droits d'administration ? | Aucune élévation demandée ; réglage d'origine rétabli à l'identique ; liste des navigateurs qui respectent le proxy | Chap. 1 (RESTR-4), 2 (WEB, MODE), 7 (INST) | À faire |
 | 4 | `tauri` | La console Tauri peut-elle embarquer le relais et afficher le plan alimenté par le prototype 1 ? Le panneau élève peut-il s'afficher dans une vue web côté agent ? | Console fonctionnelle sous Windows et Linux ; WebView2 disponible sans droits d'administration sur les postes Windows visés | Chap. 7 (RELAIS-1), 9 | À faire |
 | 5 | `classifieur` | Le classifieur CamemBERT, converti en ONNX et quantifié, tourne-t-il sur un poste élève modeste depuis Rust ? | Moins de 150 Mo sur disque, moins de 300 Mo de mémoire, moins de 100 ms par phrase ; sinon, plan B avec un modèle distillé | Chap. 5 (IA-2, SENS-3) | À faire |
@@ -52,6 +52,90 @@ d'administration.
   `pipewire-devel`, `clang` (liaisons PipeWire), `webkit2gtk4.1-devel`,
   `gtk3-devel`, `openssl-devel`, `librsvg2-devel`,
   `libappindicator-gtk3-devel`, puis `cargo install tauri-cli`.
+
+## 1. Séance et salle
+
+### 1.1 Prototype `capture`
+
+Code dans `prototypes/capture/` (jetable). Une même chaîne pour toutes
+les plateformes : image brute de l'écran → réduction (fast_image_resize)
+→ JPEG (jpeg-encoder), avec la mesure de chaque étape et du CPU. Trois
+sources d'images :
+
+| Plateforme | Source | Accord de l'utilisateur |
+|---|---|---|
+| Wayland | Portail ScreenCast (ashpd), puis flux PipeWire (pipewire-rs) | Demandé par le portail ; jeton de restauration conservé dans `~/.config/surveo-proto/` |
+| X11 | Lecture de l'écran racine (x11rb, `GetImage`) | Aucun |
+| Windows | Bibliothèque xcap, écran principal | Aucun |
+
+Commande : `surveo-proto-capture [--backend wayland|x11|windows]
+[--duration 30] [--width 320] [--continu] [--oublier-jeton]`. La version
+Windows est compilée depuis Fedora (cible `x86_64-pc-windows-gnu`,
+MinGW) ; elle ne dépend que de bibliothèques présentes sur tout
+Windows 10 ou 11.
+
+**Mesures** (29 octobre 2026, miniature de 320 pixels de large, 1 image/s)
+
+| Plateforme | Écran | Par miniature (médiane) | Taille | CPU de l'agent | Coût ajouté au compositeur |
+|---|---|---|---|---|---|
+| Wayland, COSMIC 1.9 (Fedora 44) | 5120×1440 | réduction 4,4 ms, JPEG 0,2 ms | 4,4 Ko | 0,55 % d'un cœur | environ 1 % d'un cœur |
+| X11 (serveur virtuel Xvfb) | 1920×1080 | lecture 5,2 ms, réduction 1,1 ms | 1,5 Ko | 0,72 % d'un cœur | sans objet |
+| Windows (compte administrateur, confirmé avec un compte standard) | 2300×1200 | lecture 37,8 ms, réduction 1,5 ms | 5,2 Ko | 1,77 % d'un cœur | non mesuré |
+
+**Consentement sous Wayland** : au premier lancement, le portail COSMIC
+affiche sa fenêtre d'accord ; il délivre alors un jeton de restauration.
+Aux lancements suivants, l'accord est obtenu en 3 à 4 ms, sans fenêtre.
+Le critère « accord demandé une seule fois » est atteint sous COSMIC.
+
+**Le coût réel est chez le compositeur.** COSMIC n'accepte qu'une
+cadence fixe de 60 images/s : une demande de 1 image/s au plus fait
+échouer la négociation. Laissé ouvert, le flux lui fait copier l'écran
+environ 47 fois par seconde : son CPU passe de 5 % à 33 % d'un cœur,
+alors que celui de l'agent reste à 0,6 %. La parade retenue :
+**suspendre le flux après chaque miniature et le réactiver à la
+seconde suivante** (`set_active` de PipeWire). Le compositeur n'envoie
+plus alors que 1,0 image/s, pour environ 1 % d'un cœur. La première
+image livrée après le réveil est toujours prise : sinon le flux reste
+ouvert de plus en plus longtemps à chaque cycle.
+
+**Résultat** : critère atteint sous Wayland (COSMIC), X11 et Windows ;
+la capture d'une miniature par seconde coûte moins de 2 % d'un cœur,
+compositeur compris. Les miniatures réelles pèsent 1,5 à 5 Ko, bien
+moins que les 14 à 26 Ko supposés par le prototype `relais` (7.1).
+
+**Limites de la mesure**
+
+- Jeton de restauration vérifié sous COSMIC seulement ; GNOME et KDE
+  restent à vérifier en machine virtuelle.
+- Sous XWayland, l'écran racine n'est pas lisible (erreur `BadMatch`) :
+  attendu, puisque les fenêtres Wayland n'y figurent pas. Le chemin X11
+  a été mesuré sur un serveur virtuel, sans carte graphique ; un vrai
+  poste X11 reste à mesurer.
+- Sous Windows, la mesure détaillée a été faite avec un compte
+  administrateur ; un essai avec un compte standard, en session locale,
+  donne des performances similaires. Le coût ajouté au gestionnaire de
+  fenêtres (DWM) n'est pas mesuré ; la lecture de l'écran (38 ms) pourrait être réduite avec
+  l'API de duplication du bureau.
+- Un seul écran capturé (l'écran principal) ; les flux PipeWire en
+  DMA-BUF ne sont pas traités (COSMIC a fourni une mémoire partagée).
+
+**Premier constat pour le prototype `antivirus`** : sur le poste
+Windows de test, l'antivirus (Avast) juge `capture.exe`, non signé,
+suspect dès son lancement ; au bout de 50 secondes, son analyse n'a
+toujours pas abouti. Sur un poste de salle sans droits
+d'administration, personne ne pourrait passer outre : la signature du
+code et la réputation de l'exécutable auprès des éditeurs
+d'antivirus sont une condition du déploiement, pas un confort.
+
+**À reprendre dans l'implémentation**
+
+- Suspendre le flux PipeWire entre deux miniatures, et ne mesurer le
+  coût d'une capture que compositeur compris.
+- Conserver le jeton de restauration ; prévoir le cas où le portail
+  n'en délivre pas, ou où l'utilisateur retire l'accord (la console doit
+  alors afficher que l'écran du poste n'est pas visible).
+- Vue en grand (AFF-3, mode focus) : plus grande taille et plus forte
+  cadence à la demande, puis retour à la miniature.
 
 ## 6. Rôles et confiance
 

@@ -7,3 +7,7 @@ VISION.md
 # Prototypes : artefacts de compilation et clés générées
 prototypes/*/target/
 prototypes/relais/keys/
+# Miniatures et journaux de test : ils montrent le contenu réel des écrans
+prototypes/capture/dist/
+prototypes/capture/*.jpg
+prototypes/capture/*.log
