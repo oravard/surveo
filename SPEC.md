@@ -12,7 +12,7 @@ code et les tests puissent y renvoyer.
 1. [Séance et salle](#1-séance-et-salle)
 2. Maîtrise de la classe (blocage, filtrage, applications, mode examen) — à venir
 3. [Pédagogie](#3-pédagogie) (TP, rendus, distribution de fichiers, sondages)
-4. Communication (messages, chat, diffusion d'écran) — à venir
+4. [Communication](#4-communication) (messages, chat, demande d'aide, diffusion d'écran)
 5. IA — à venir
 6. Rôles et confiance (appairage, droits) — à venir
 7. Déploiement et relais (installation, découverte, reconfiguration) — à venir
@@ -455,3 +455,149 @@ Règle générale :
 - Partage des modèles entre collègues : un simple fichier suffit-il, ou
   faut-il une bibliothèque commune à l'établissement (voire publique,
   dans l'esprit des communs numériques éducatifs) ?
+
+---
+
+## 4. Communication
+
+Toute la communication de ce chapitre se fait entre l'enseignant et les
+élèves, pendant une séance. Elle passe par le relais de la séance : rien
+ne transite directement d'un poste élève à un autre.
+
+### 4.1 Vocabulaire
+
+| Terme | Sens |
+|---|---|
+| **Message** | Texte court envoyé par l'enseignant vers un ou plusieurs postes, affiché aussitôt chez l'élève. |
+| **Message prédéfini** | Message réutilisable enregistré par l'enseignant. |
+| **Conversation** | Échange suivi entre l'enseignant et un poste (ou l'ensemble des postes de la séance). |
+| **Demande d'aide** | Signal qu'un élève envoie à l'enseignant depuis son poste, équivalent d'une main levée. |
+| **Diffusion d'écran** | Partage en direct d'un écran (celui de l'enseignant, ou celui d'un élève) vers d'autres postes de la séance. |
+
+### 4.2 Messages
+
+- **MSG-1** — L'enseignant envoie un message à tous les postes de la
+  séance, à une sélection, ou à un seul poste.
+- **MSG-2** — Le message s'affiche aussitôt au premier plan sur le poste
+  de l'élève, avec le nom de l'enseignant. L'élève le referme d'un geste.
+- **MSG-3** — Un message peut renvoyer à un fichier distribué
+  (DISTRIB-1) : l'élève ouvre le fichier ou son dossier depuis le
+  message.
+- **MSG-4** — L'enseignant enregistre, modifie et supprime des messages
+  prédéfinis. La bibliothèque de messages le suit d'une salle à l'autre,
+  comme celle des modèles de TP (MODELE-3).
+- **MSG-5** — Un message envoyé à un poste momentanément déconnecté lui
+  parvient lorsqu'il rejoint la séance, tant qu'elle est ouverte. Un
+  message devenu sans objet à la fin de la séance n'est pas affiché.
+
+### 4.3 Conversation
+
+- **CHAT-1** — Chaque poste a une conversation privée avec l'enseignant.
+  L'enseignant voit une conversation par poste ; l'élève ne voit que la
+  sienne.
+- **CHAT-2** — Les élèves ne communiquent pas entre eux par Surveo :
+  il n'existe aucun canal de poste élève à poste élève.
+- **CHAT-3** — L'enseignant peut écrire à toute la séance d'un coup
+  (annonce). L'annonce apparaît dans la conversation de chaque poste,
+  attribuée à l'enseignant.
+- **CHAT-4** — L'élève est averti discrètement d'un nouveau message
+  (par exemple une pastille), sans fenêtre imposée, pour ne pas couper
+  son travail.
+- **CHAT-5** — Les messages sont limités en longueur et en débit, pour
+  éviter les abus. Au-delà, l'élève est prévenu :
+
+  > Vous envoyez des messages trop vite : patientez un instant.
+
+- **CHAT-6** — Une conversation ne vit que le temps de la séance. Son
+  éventuelle conservation relève du chapitre « Données et RGPD ».
+
+### 4.4 Demande d'aide
+
+- **AIDE-1** — L'élève demande de l'aide depuis son poste d'un seul
+  geste. Son poste fait alors apparaître l'indicateur « demande d'aide »
+  dans la console (AFF-2).
+- **AIDE-2** — L'ordre des demandes est conservé : l'enseignant voit qui
+  a demandé en premier.
+- **AIDE-3** — La demande se lève quand l'enseignant la marque comme
+  traitée, ou quand l'élève l'annule lui-même.
+- **AIDE-4** — L'élève voit l'état de sa demande : en attente, ou prise
+  en compte par l'enseignant.
+
+### 4.5 Diffusion d'écran
+
+- **DIFF-1** — L'enseignant diffuse son écran, ou une partie de son
+  écran, vers tous les postes de la séance ou vers une sélection.
+- **DIFF-2** — Chez l'élève, la diffusion s'affiche dans une fenêtre
+  qu'il peut agrandir. Il sait d'où vient la diffusion :
+
+  > {source} partage son écran.
+
+- **DIFF-3** — L'enseignant peut diffuser l'écran d'un élève vers les
+  autres postes (pour montrer un travail à la classe). L'élève dont
+  l'écran est diffusé en est toujours informé sur son poste pendant
+  toute la durée de la diffusion.
+- **DIFF-4** — La diffusion de l'écran d'un **poste personnel** vers
+  d'autres postes exige l'accord explicite de l'élève, demandé à chaque
+  diffusion. Sans accord, rien n'est diffusé.
+- **DIFF-5** — L'enseignant arrête la diffusion. Elle s'arrête aussi à
+  la fin de la séance. À l'arrêt, la fenêtre disparaît chez les élèves.
+- **DIFF-6** — Pendant une diffusion, l'élève garde la main sur son
+  poste : la diffusion n'impose rien d'autre qu'une fenêtre.
+
+### 4.6 Poste personnel
+
+- **COMM-1** — Messages (4.2), conversation (4.3), demande d'aide (4.4)
+  et réception d'une diffusion (4.5) fonctionnent sur un poste personnel.
+- **COMM-2** — La diffusion de l'écran d'un poste personnel est soumise
+  à DIFF-4.
+
+### 4.7 Critères d'acceptation
+
+1. Un message envoyé à toute la séance apparaît sur chaque poste présent
+   avec le nom de l'enseignant.
+2. Un message envoyé à un poste déconnecté lui parvient dès qu'il
+   rejoint la séance, si elle est encore ouverte.
+3. Un élève ne dispose d'aucun moyen, dans Surveo, d'écrire à un autre
+   élève.
+4. Deux élèves demandent de l'aide : la console les présente dans
+   l'ordre des demandes ; marquer la première comme traitée la retire
+   sans toucher la seconde.
+5. L'enseignant diffuse son écran à la séance : chaque poste l'affiche
+   et l'élève peut continuer à se servir de son poste.
+6. L'écran d'un élève diffusé à la classe fait apparaître, sur le poste
+   de cet élève, l'indication que son écran est partagé, pendant toute
+   la diffusion.
+7. Sur un poste personnel, aucune diffusion de l'écran de l'élève ne
+   part sans son accord explicite.
+8. À la fin de la séance, toute diffusion en cours s'arrête et les
+   conversations ne sont plus accessibles.
+
+### 4.8 Décisions
+
+25 octobre 2026 : chapitre proposé à partir de la version précédente,
+à valider.
+
+- Repris de la version précédente : messages affichés chez l'élève,
+  messages prédéfinis, chat enseignant↔élève, diffusion de l'écran de
+  l'enseignant, limites de longueur et de débit.
+- Décision : **pas de canal élève à élève** dans Surveo. La
+  communication est centrée sur l'enseignant, pour éviter les usages
+  malveillants entre élèves.
+- Décision : diffuser l'écran d'un élève est toujours visible par cet
+  élève ; sur un poste personnel, cela exige son accord explicite.
+- Nouveautés proposées : demande d'aide (main levée) avec file d'attente
+  ordonnée, notification discrète d'un nouveau message plutôt qu'une
+  fenêtre imposée.
+
+### 4.9 Questions ouvertes
+
+- Pièces jointes dans la conversation (image, fichier), ou texte seul ?
+- L'enseignant peut-il figer l'écran des élèves pendant qu'il diffuse le
+  sien, pour capter l'attention ? Cela relèverait du chapitre 2
+  (maîtrise de la classe), pas de la communication.
+- Un élève peut-il demander de l'aide de façon privée (visible du seul
+  enseignant) plutôt que par un indicateur sur la tuile ? L'indicateur
+  est déjà discret, mais la question se pose pour les salles où les
+  élèves voient l'écran de l'enseignant.
+- Réactions rapides de l'élève sans ouvrir la conversation (« compris »,
+  « bloqué ») — utile, ou superflu ?
