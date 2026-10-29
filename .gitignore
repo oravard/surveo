@@ -3,3 +3,7 @@ VISION.md
 
 # Historique local de l'éditeur
 .history/
+
+# Prototypes : artefacts de compilation et clés générées
+prototypes/*/target/
+prototypes/relais/keys/

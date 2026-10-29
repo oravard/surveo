@@ -1,0 +1,24 @@
+[package]
+name = "surveo-proto-relais"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "EUPL-1.2"
+description = "Prototype 1 de la phase 2 (IMPL.md) : relais, agents et console simulés"
+
+[dependencies]
+anyhow = "1"
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = "0.26"
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rcgen = { version = "0.13", default-features = false, features = ["ring", "pem", "crypto"] }
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+rand = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+hex = "0.4"
+
+[profile.release]
+debug = false
