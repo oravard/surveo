@@ -35,6 +35,9 @@ quand il le faut.
 
 - [SPEC.md](SPEC.md) : ce que fait Surveo, vu de l'utilisateur (à venir).
 - [IMPL.md](IMPL.md) : comment c'est réalisé (à venir).
+- [maquette/console-surveo.html](maquette/console-surveo.html) : maquette
+  cliquable de l'interface (console enseignant et poste élève), avec des
+  données fictives. À ouvrir dans un navigateur.
 
 ## Licence
 

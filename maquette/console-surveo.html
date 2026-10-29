@@ -1,0 +1,1233 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Maquette validée le 29 octobre 2026 (SPEC.md, chapitre 9). Données fictives. Ouvrir directement dans un navigateur. -->
+<style>body{margin:0}[hidden]{display:none!important}</style>
+<title>Console Surveo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#ECF0EC; --surface:#FFFFFF; --surface-2:#F5F8F5; --ink:#1A2421; --muted:#56645F; --line:#D3DBD5;
+  --accent:#2346A3; --accent-soft:#E2E8F7; --accent-ink:#FFFFFF;
+  --help:#9A5A00; --help-soft:#FBEED6;
+  --late:#A3372B; --late-soft:#F8E2DE;
+  --restrict:#5B4790; --restrict-soft:#ECE6F6;
+  --ok:#2B7549; --ok-soft:#DFF0E5;
+  --bar:#1D2824; --bar-2:#2A3732; --bar-ink:#EEF3F0; --bar-muted:#A8B6B0;
+  --demo:#7A5200; --demo-bg:#FFF6E2; --demo-line:#D9B25F;
+  --shadow:0 1px 2px rgba(18,28,24,.07),0 6px 22px rgba(18,28,24,.07);
+  --sans:'Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,'Cascadia Mono',Menlo,Consolas,monospace;
+  --tw:138px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0F1412; --surface:#171E1B; --surface-2:#1C2521; --ink:#E2EAE5; --muted:#95A39D; --line:#2A3531;
+    --accent:#8FA7F3; --accent-soft:#1E2847; --accent-ink:#0D1324;
+    --help:#EAA53F; --help-soft:#3A2A10;
+    --late:#F0897B; --late-soft:#3E201C;
+    --restrict:#BCA6EA; --restrict-soft:#2A2342;
+    --ok:#6FC492; --ok-soft:#163022;
+    --bar:#26322D; --bar-2:#33413B; --bar-ink:#EEF3F0; --bar-muted:#A8B6B0;
+    --demo:#F0C46A; --demo-bg:#2B2410; --demo-line:#6E5622;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 22px rgba(0,0,0,.25);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0F1412; --surface:#171E1B; --surface-2:#1C2521; --ink:#E2EAE5; --muted:#95A39D; --line:#2A3531;
+  --accent:#8FA7F3; --accent-soft:#1E2847; --accent-ink:#0D1324;
+  --help:#EAA53F; --help-soft:#3A2A10;
+  --late:#F0897B; --late-soft:#3E201C;
+  --restrict:#BCA6EA; --restrict-soft:#2A2342;
+  --ok:#6FC492; --ok-soft:#163022;
+  --bar:#26322D; --bar-2:#33413B; --bar-ink:#EEF3F0; --bar-muted:#A8B6B0;
+  --demo:#F0C46A; --demo-bg:#2B2410; --demo-line:#6E5622;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 22px rgba(0,0,0,.25);
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.4}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit}
+.ic{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ic.sm{width:14px;height:14px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.shell{height:100%;display:flex;flex-direction:column;padding-inline:16px;padding-block:10px 12px;gap:10px}
+
+/* Barre de la maquette (hors produit) */
+.demo{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:7px 12px;border:1.5px dashed var(--demo-line);background:var(--demo-bg);color:var(--demo);border-radius:10px;font-size:13px}
+.demo b{letter-spacing:.06em;text-transform:uppercase;font-size:11.5px}
+.demo .grp{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.demo label{display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+.demo button{background:transparent;border:1px solid var(--demo-line);color:var(--demo);border-radius:7px;padding:3px 8px;cursor:pointer;font-size:13px}
+.demo button:hover{background:color-mix(in srgb,var(--demo-line) 22%,transparent)}
+
+/* Application */
+.app{flex:1;min-height:0;display:grid;grid-template-rows:auto auto 1fr auto;gap:10px}
+.topbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 12px;box-shadow:var(--shadow)}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:18px;letter-spacing:.01em}
+.brand .mark{width:22px;height:22px;border-radius:6px;background:var(--accent);position:relative}
+.brand .mark::after{content:"";position:absolute;inset:6px 6px 9px 6px;border:2px solid var(--accent-ink);border-radius:2px}
+.seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:2px;gap:2px}
+.seg button{border:0;background:transparent;padding:5px 11px;border-radius:7px;cursor:pointer;font-weight:700;font-size:14px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.seance{display:flex;align-items:center;gap:8px;font-size:14px;padding-left:10px;border-left:1px solid var(--line)}
+.seance .room{font-weight:700}
+.spacer{flex:1}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:14px;cursor:pointer;color:var(--ink);white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--surface-2)}
+.btn.danger{color:var(--late);border-color:color-mix(in srgb,var(--late) 45%,var(--line))}
+.btn[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.kbd{font-family:var(--mono);font-size:11px;padding:1px 5px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;color:var(--muted);background:var(--surface-2)}
+.search{min-width:220px;justify-content:space-between;color:var(--muted);font-weight:400}
+.bell{position:relative}
+.bell .dot{position:absolute;top:3px;right:4px;width:8px;height:8px;border-radius:50%;background:var(--muted);border:2px solid var(--surface)}
+.who{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.who b{color:var(--ink)}
+
+/* Bandeaux */
+.topbar{grid-row:1}
+.banners{grid-row:2;display:flex;flex-direction:column;gap:6px}
+#mainwrap > *{grid-row:3;min-height:0}
+.actionbar{grid-row:4}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:7px 12px;border-radius:10px;font-size:14px;border:1px solid var(--line);background:var(--surface)}
+.banner .ic{color:var(--muted)}
+.banner.exam{background:var(--restrict-soft);border-color:color-mix(in srgb,var(--restrict) 40%,transparent)}
+.banner.exam .ic{color:var(--restrict)}
+.banner.proj{background:var(--bar);color:var(--bar-ink);border-color:var(--bar)}
+.banner.proj .ic{color:var(--bar-ink)}
+.banner.proj .btn{background:var(--bar-2);color:var(--bar-ink);border-color:var(--bar-2)}
+.banner .grow{flex:1}
+
+/* Zone principale */
+.main{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:10px}
+.stage{min-height:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;box-shadow:var(--shadow);position:relative}
+.stage-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.stage-head .hint{font-size:13px;color:var(--muted)}
+.switch{display:inline-flex;align-items:center;gap:7px;font-size:14px;cursor:pointer;color:var(--muted)}
+.switch input{appearance:none;width:32px;height:18px;border-radius:99px;background:var(--line);position:relative;cursor:pointer;margin:0}
+.switch input::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--surface);transition:left .15s}
+.switch input:checked{background:var(--accent)}
+.switch input:checked::after{left:16px}
+.stage-body{flex:1;min-height:0;overflow:auto;padding:14px}
+
+/* Plan de salle */
+.front{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;width:max-content;min-width:100%}
+.board{flex:1;max-width:520px;margin-inline:auto;text-align:center;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:3px solid var(--line);padding-bottom:4px}
+.desk{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--surface-2);white-space:nowrap}
+.plan{display:grid;grid-template-columns:repeat(3,var(--tw)) 34px repeat(3,var(--tw));gap:12px;width:max-content;margin-inline:auto}
+.aisle{grid-column:4;font-size:10.5px;color:var(--muted);writing-mode:vertical-rl;text-align:center;letter-spacing:.12em;text-transform:uppercase;align-self:center}
+.tile{min-height:100px;display:flex;flex-direction:column;gap:5px;padding:8px 9px;border-radius:9px;background:var(--surface);border:1px solid var(--line);text-align:left;cursor:pointer;position:relative;transition:border-color .12s}
+.tile:hover{border-color:var(--muted)}
+.tile.sel{outline:2.5px solid var(--accent);outline-offset:1px;background:var(--accent-soft)}
+.tile.help{box-shadow:inset 4px 0 0 var(--help)}
+.tile.paused{background:repeating-linear-gradient(135deg,var(--restrict-soft) 0 7px,var(--surface) 7px 14px)}
+.tile.sel.paused{background:repeating-linear-gradient(135deg,var(--restrict-soft) 0 7px,var(--accent-soft) 7px 14px)}
+.tile.st-off{background:transparent;border-style:dashed;color:var(--muted)}
+.tile.st-on{background:var(--surface-2);color:var(--muted)}
+.tile.st-lost{border-color:color-mix(in srgb,var(--late) 50%,var(--line))}
+.t-head{display:flex;align-items:center;justify-content:space-between;gap:4px}
+.t-num{font-family:var(--mono);font-weight:600;font-size:17px;font-variant-numeric:tabular-nums}
+.t-flags{display:flex;gap:3px}
+.flag{display:inline-flex;align-items:center;gap:2px;font-size:11px;font-weight:700;padding:1px 5px;border-radius:99px;line-height:1.3}
+.flag.help{background:var(--help-soft);color:var(--help)}
+.flag.late{background:var(--late-soft);color:var(--late)}
+.flag.pause{background:var(--restrict-soft);color:var(--restrict)}
+.flag.game{background:var(--surface-2);color:var(--muted);border:1px dashed var(--muted)}
+.flag.lost{background:var(--late-soft);color:var(--late)}
+.t-names{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st-off .t-names,.st-on .t-names{font-weight:400}
+.t-steps{display:flex;gap:3px}
+.t-steps i{flex:1;height:4px;border-radius:2px;background:var(--line)}
+.t-steps i.done{background:var(--ok)}
+.t-steps i.cur{background:var(--accent)}
+.t-foot{display:flex;justify-content:space-between;gap:6px;font-size:11.5px;color:var(--muted)}
+.t-state{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)}
+.t-check{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:none;align-items:center;justify-content:center}
+.tile.sel .t-check{display:flex}
+.t-check .ic{width:13px;height:13px;stroke-width:2.6}
+.ident-num{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-family:var(--mono);font-size:44px;font-weight:600;background:color-mix(in srgb,var(--surface) 85%,transparent);border-radius:9px;color:var(--accent)}
+.tile.ident .ident-num{display:flex}
+.slot{min-height:100px;border:1.5px dashed var(--line);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);background:transparent;cursor:default}
+.placing .slot{border-color:var(--accent);color:var(--accent);cursor:pointer;background:var(--accent-soft)}
+.unplaced{margin-top:18px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 12px;border:1.5px dashed var(--line);border-radius:10px;font-size:14px;width:max-content;max-width:100%;margin-inline:auto}
+
+/* Écrans factices */
+.fs{border-radius:5px;overflow:hidden;border:1px solid rgba(0,0,0,.18);background:#fff;display:flex;flex-direction:column;aspect-ratio:16/10;max-width:100%;font-family:var(--sans)}
+.fs .tb{height:13%;min-height:7px;background:#dfe3e8;display:flex;align-items:center;padding-inline:4%;font-size:clamp(5px,1.3cqw,11px);color:#333;white-space:nowrap;overflow:hidden}
+.fs .bd{flex:1;position:relative;padding:5%;display:flex;flex-direction:column;gap:6%}
+.fs .ln{height:5%;min-height:2px;border-radius:2px;background:#c9ced6}
+.fs-writer .bd{background:#e9ebee}
+.fs-writer .pg{background:#fff;flex:1;padding:6% 8%;display:flex;flex-direction:column;gap:9%;box-shadow:0 0 0 1px #d6d9de}
+.fs-term .bd{background:#1d1f21}
+.fs-term .ln{background:#3d7d3d}
+.fs-term .ln.w{background:#8c8f91}
+.fs-browser .addr{height:9%;background:#eef0f3;border-radius:3px;margin-bottom:3%}
+.fs-browser .blk{background:#d8dde6;border-radius:3px}
+.fs-pt .bd{background:#f1f4f8}
+.fs-pt .node{position:absolute;width:12%;aspect-ratio:1;border-radius:3px;background:#3b78c6}
+.fs-pt .node.r{background:#c66a3b;border-radius:50%}
+.fs-pt .wire{position:absolute;height:1.5px;background:#555;transform-origin:left center}
+.fs-wire .bd{background:#fff;gap:3%}
+.fs-wire .ln{height:7%;background:#e6eefb}
+.fs-wire .ln:nth-child(3n){background:#e8f7e5}
+.fs-game .bd{background:linear-gradient(#7fb7f0 0 55%,#5c9e3f 55%)}
+.masked{aspect-ratio:16/10;border-radius:5px;border:1px dashed var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);font-size:12px;text-align:center;padding:6px;background:var(--surface-2)}
+.tile .fs,.tile .masked{container-type:inline-size}
+
+/* Liste */
+.filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:4px 11px;font-size:13.5px;font-weight:700;cursor:pointer;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:14px}
+th{text-align:left;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr.sel td{background:var(--accent-soft)}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:var(--surface-2)}
+tbody tr.sel:hover td{background:var(--accent-soft)}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--surface-2);color:var(--muted)}
+.pill.in{background:var(--ok-soft);color:var(--ok)}
+.pill.lost{background:var(--late-soft);color:var(--late)}
+
+/* Mosaïque */
+.mosaic{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.mcard{border:1px solid var(--line);border-radius:10px;padding:7px;background:var(--surface);cursor:pointer;display:flex;flex-direction:column;gap:6px;text-align:left}
+.mcard.sel{outline:2.5px solid var(--accent);outline-offset:1px}
+.mcard .fs,.mcard .masked{container-type:inline-size}
+.mcard .cap{display:flex;justify-content:space-between;gap:6px;font-size:13px}
+.mcard .cap span:last-child{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Focus */
+.focus{position:absolute;inset:0;background:var(--surface);border-radius:12px;display:flex;flex-direction:column;z-index:5}
+.focus-body{flex:1;min-height:0;overflow:auto;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px}
+.focus-body .fs,.focus-body .masked{container-type:inline-size}
+.focus-side{display:flex;flex-direction:column;gap:12px;font-size:14px}
+.focus-side h3{margin:0;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.applist{display:flex;flex-direction:column;gap:6px}
+.applist div{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--line);border-radius:8px}
+
+/* Panneau */
+.panel{min-height:0;overflow:auto;display:flex;flex-direction:column;gap:8px}
+.psec{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.psec > button.ph{width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:0;background:transparent;cursor:pointer;font-weight:700;font-size:14.5px;text-align:left}
+.ph .count{margin-left:auto;font-family:var(--mono);font-size:12.5px;padding:1px 7px;border-radius:99px;background:var(--surface-2);color:var(--muted)}
+.ph .count.hot{background:var(--help-soft);color:var(--help)}
+.ph .chev{transition:transform .15s;color:var(--muted)}
+.psec.collapsed .chev{transform:rotate(-90deg)}
+.pb{padding:0 12px 12px;display:flex;flex-direction:column;gap:8px;font-size:14px}
+.psec.collapsed .pb{display:none}
+.hq{display:flex;align-items:center;gap:8px;padding:7px 8px;border:1px solid var(--line);border-radius:9px}
+.hq .ord{font-family:var(--mono);font-weight:600;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--help-soft);color:var(--help);font-size:12px;flex:none}
+.hq .txt{flex:1;min-width:0}
+.hq .txt small{display:block;color:var(--muted);font-size:12px}
+.stepbar{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:4px 8px;font-size:13px}
+.stepbar .lbl{color:var(--muted);font-family:var(--mono);font-size:12px}
+.stepbar .track{height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line)}
+.stepbar .fill{height:100%;background:var(--accent)}
+.stepbar .n{font-family:var(--mono);font-size:12.5px;text-align:right}
+.kv{display:flex;flex-wrap:wrap;gap:6px}
+.kv span{font-size:12.5px;padding:2px 8px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line)}
+.kv span.late{background:var(--late-soft);color:var(--late);border-color:transparent}
+.pollbar{display:grid;grid-template-columns:1fr auto;gap:3px 8px;font-size:13px}
+.pollbar .track{grid-column:1/-1;height:10px;border-radius:5px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden}
+.pollbar .fill{height:100%;background:var(--ok)}
+.conv{display:flex;align-items:flex-start;gap:8px;padding:7px 8px;border:1px solid var(--line);border-radius:9px;cursor:pointer;background:transparent;text-align:left;width:100%}
+.conv:hover{border-color:var(--muted)}
+.conv .who2{font-weight:700;font-size:13.5px}
+.conv .prev{font-size:13px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.conv .unr{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:6px;flex:none}
+.thread{display:flex;flex-direction:column;gap:6px}
+.bubble{max-width:90%;padding:6px 9px;border-radius:10px;font-size:13.5px;background:var(--surface-2);border:1px solid var(--line)}
+.bubble.me{align-self:flex-end;background:var(--accent-soft);border-color:transparent}
+.bubble small{display:block;font-size:11px;color:var(--muted)}
+.inrow{display:flex;gap:6px}
+.inrow input,.field,textarea{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px}
+textarea{width:100%;resize:vertical;min-height:64px}
+.hidden-msg{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;padding:8px;border:1px dashed var(--line);border-radius:8px}
+
+/* Barre d'actions */
+.actionbar{position:relative;background:var(--bar);color:var(--bar-ink);border-radius:12px;padding:8px 10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;box-shadow:var(--shadow)}
+.target{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;font-size:14px;min-width:0}
+.target .note{font-size:13px;color:var(--bar-muted)}
+.target button{background:transparent;border:0;color:var(--bar-muted);text-decoration:underline;cursor:pointer;font-size:13px;padding:0}
+.actions{display:flex;flex-wrap:wrap;gap:4px;margin-left:auto}
+.bbtn{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border-radius:8px;border:1px solid transparent;background:var(--bar-2);color:var(--bar-ink);font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap}
+.bbtn:hover{background:color-mix(in srgb,var(--bar-2) 70%,var(--bar-ink))}
+.bbtn[aria-expanded="true"]{border-color:var(--bar-ink)}
+.pop{position:absolute;bottom:calc(100% + 8px);right:10px;width:min(420px,calc(100vw - 32px));background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.22);padding:12px;display:flex;flex-direction:column;gap:10px;z-index:30;max-height:min(70vh,560px);overflow:auto}
+.pop h3{margin:0;font-size:15px}
+.pop .sub{font-size:13px;color:var(--muted);margin:0}
+.pop .row{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.opt{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);cursor:pointer;text-align:left;width:100%}
+.opt:hover{border-color:var(--muted)}
+.opt .ic{color:var(--muted)}
+.opt small{display:block;color:var(--muted);font-size:12.5px}
+.opt.cur{border-color:var(--accent);background:var(--accent-soft)}
+.radio{display:flex;align-items:flex-start;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;cursor:pointer;font-size:14px}
+.radio input{margin-top:3px;accent-color:var(--accent)}
+.radio small{display:block;color:var(--muted);font-size:12.5px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{border:1px solid var(--line);background:var(--surface-2);border-radius:99px;padding:4px 10px;font-size:13px;cursor:pointer;text-align:left}
+
+/* Toasts */
+.toasts{position:fixed;right:16px;bottom:96px;display:flex;flex-direction:column;gap:8px;z-index:40;max-width:min(440px,calc(100vw - 32px))}
+.toast{background:var(--bar);color:var(--bar-ink);border-radius:10px;padding:10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.25);display:flex;align-items:flex-start;gap:10px;font-size:14px}
+.toast .ic{color:#7fd6a0;margin-top:1px}
+.toast .tx{flex:1}
+.toast small{display:block;color:var(--bar-muted);font-size:12.5px;margin-top:2px}
+.toast button{background:transparent;border:1px solid var(--bar-muted);color:var(--bar-ink);border-radius:7px;padding:3px 9px;cursor:pointer;font-weight:700;font-size:13px}
+
+/* Dialogue et palette */
+.backdrop{position:fixed;inset:0;background:rgba(10,16,14,.45);display:flex;align-items:flex-start;justify-content:center;padding:12vh 16px 16px;z-index:60}
+.dialog{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3);width:min(460px,100%);padding:18px;display:flex;flex-direction:column;gap:12px}
+.dialog h2{margin:0;font-size:18px;text-wrap:balance}
+.dialog p{margin:0;color:var(--muted)}
+.dialog .row{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.palette{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3);width:min(560px,100%);overflow:hidden}
+.palette input{width:100%;border:0;border-bottom:1px solid var(--line);padding:14px 16px;font:inherit;font-size:16px;background:var(--surface);color:var(--ink)}
+.palette input:focus{outline:none}
+.palette ul{list-style:none;margin:0;padding:6px;max-height:50vh;overflow:auto}
+.palette li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14.5px}
+.palette li .grp{margin-left:auto;font-size:12px;color:var(--muted)}
+.palette li[aria-selected="true"]{background:var(--accent-soft)}
+.palette .empty{padding:14px 16px;color:var(--muted);font-size:14px}
+
+/* Espaces Préparer / Administrer */
+.space{min-height:0;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);display:grid;grid-template-columns:230px minmax(0,1fr)}
+.space nav{border-right:1px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:3px}
+.space nav h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:4px 8px 8px}
+.space nav button{display:flex;justify-content:space-between;align-items:center;gap:8px;border:0;background:transparent;padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:700;font-size:14px;text-align:left;color:var(--ink)}
+.space nav button[aria-current="true"]{background:var(--accent-soft);color:var(--accent)}
+.space nav button span{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.space .content{padding:16px 18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.space h2.t{margin:0;font-size:20px;text-wrap:balance}
+.toolbar{display:flex;flex-wrap:wrap;gap:6px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.card{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;cursor:pointer;background:var(--surface);text-align:left}
+.card.cur{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.card h3{margin:0;font-size:15.5px}
+.card p{margin:0;font-size:13px;color:var(--muted)}
+.steps{display:flex;flex-direction:column;gap:6px}
+.steps .st{display:grid;grid-template-columns:28px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:9px;font-size:14px}
+.steps .st .no{font-family:var(--mono);color:var(--muted)}
+.steps .st .du{font-family:var(--mono);font-size:13px}
+.steps .st .ac{font-size:12.5px;color:var(--muted)}
+.note{font-size:13px;color:var(--muted)}
+.admin{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.acard{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.acard h3{margin:0;font-size:15.5px;display:flex;align-items:center;gap:8px}
+.acard .role{margin-left:auto;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:1px 7px;font-weight:700}
+.acard table{min-width:0}
+.code{font-family:var(--mono);font-size:26px;letter-spacing:.12em;font-weight:600}
+.audit{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.audit div{display:grid;grid-template-columns:auto 1fr;gap:8px}
+.audit .t{font-family:var(--mono);color:var(--muted)}
+.back-seance{margin-left:auto}
+
+/* Clôture */
+.closed{max-width:620px;margin:6vh auto;display:flex;flex-direction:column;gap:12px}
+.closed h2{margin:0;font-size:22px}
+.closed ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+
+/* Côté élève */
+.student{flex:1;min-height:0;border-radius:12px;overflow:hidden;position:relative;background:
+  radial-gradient(1200px 500px at 15% 10%,#3f6f8f,transparent),linear-gradient(160deg,#25475e,#1b3245);display:flex;flex-direction:column}
+.desk-area{flex:1;position:relative;min-height:420px}
+.swin{position:absolute;left:5%;top:7%;width:min(62%,780px);height:78%;border-radius:8px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.4);display:flex;flex-direction:column;background:#e9ebee}
+.swin .tb{height:30px;background:#dfe3e8;display:flex;align-items:center;padding-inline:12px;font-size:13px;color:#333}
+.swin .pg{margin:18px auto;background:#fff;width:72%;flex:1;padding:28px 34px;display:flex;flex-direction:column;gap:12px;color:#222;font-size:14px;box-shadow:0 0 0 1px #d6d9de}
+.swin .pg .ln{height:8px;border-radius:3px;background:#d4d8de}
+.taskbar{height:40px;background:rgba(10,16,22,.82);display:flex;align-items:center;gap:10px;padding-inline:14px;color:#dfe6ea;font-size:12.5px}
+.taskbar .clk{margin-left:auto;font-family:var(--mono)}
+.indic{position:absolute;top:12px;right:12px;display:flex;align-items:center;gap:8px;background:var(--surface);color:var(--ink);border-radius:99px;padding:5px 6px 5px 12px;box-shadow:0 6px 20px rgba(0,0,0,.3);font-size:13.5px;z-index:6;max-width:calc(100% - 24px)}
+.indic .live{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none}
+.indic.exam{outline:2px solid var(--restrict)}
+.spanel{position:absolute;top:58px;right:12px;bottom:52px;width:min(340px,calc(100% - 24px));background:var(--surface);color:var(--ink);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.35);display:flex;flex-direction:column;z-index:6;overflow:hidden}
+.spanel header{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);font-weight:700}
+.spanel .sb{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:14px;font-size:14px}
+.spanel h4{margin:0 0 6px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.sstep{display:flex;gap:8px;align-items:flex-start;padding:6px 0}
+.sstep input{margin-top:3px;accent-color:var(--ok);width:16px;height:16px}
+.sstep.cur{font-weight:700}
+.consigne{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:13.5px}
+.drop{border:1.5px dashed var(--line);border-radius:10px;padding:12px;text-align:center;font-size:13.5px;color:var(--muted);display:flex;flex-direction:column;gap:8px;align-items:center}
+.ack{font-size:13px;color:var(--ok);display:flex;gap:6px;align-items:center}
+.overlay{position:absolute;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;padding:16px}
+.overlay.pause{background:#151a2b;color:#e8ecff;flex-direction:column;gap:10px;text-align:center}
+.overlay.pause .big{font-size:26px;font-weight:700}
+.fg{background:rgba(5,10,15,.35)}
+.fgcard{background:var(--surface);color:var(--ink);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.4);width:min(420px,100%);padding:18px;display:flex;flex-direction:column;gap:10px}
+.fgcard h3{margin:0;font-size:16px}
+.castwin{position:absolute;left:8%;top:12%;width:min(56%,640px);background:var(--surface);border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,.45);z-index:7;overflow:hidden}
+.castwin header{padding:8px 12px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line)}
+.castwin .fs{border-radius:0;border:0;container-type:inline-size}
+
+/* Renvois à la spécification (maquette) */
+.ref{display:none;font-family:var(--mono);font-size:10.5px;font-weight:600;color:var(--demo);background:var(--demo-bg);border:1px dashed var(--demo-line);border-radius:5px;padding:0 4px;vertical-align:middle;white-space:nowrap}
+.show-refs .ref{display:inline-block}
+
+@media (max-width: 980px){
+  html,body{height:auto}
+  .shell{height:auto;min-height:100%}
+  .app{display:flex;flex-direction:column}
+  .main{grid-template-columns:1fr}
+  .stage{min-height:480px}
+  .panel{overflow:visible}
+  .actionbar{position:sticky;bottom:env(safe-area-inset-bottom,0px);z-index:20}
+  .search{min-width:0}
+  .space{grid-template-columns:1fr}
+  .space nav{border-right:0;border-bottom:1px solid var(--line);flex-direction:row;flex-wrap:wrap}
+  .focus-body{grid-template-columns:1fr}
+  .swin{width:88%}
+  .toasts{bottom:140px}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-hand" viewBox="0 0 24 24"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12M11 11V4a1.5 1.5 0 0 1 3 0v7M14 11V5a1.5 1.5 0 0 1 3 0v7M17 12V8.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1a6 6 0 0 1-5-2.7L5 15a1.6 1.6 0 0 1 2.6-1.8L8 14"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></symbol>
+  <symbol id="i-wifioff" viewBox="0 0 24 24"><path d="M3 3l18 18M8.5 16.5a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 5.2-2.8M19 12.9a10 10 0 0 0-2-1.5M2 8.8a15 15 0 0 1 4.2-2.6M22 8.8A15 15 0 0 0 10.7 5M12 20h.01"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v8M6.4 6.4a8 8 0 1 0 11.2 0"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-msg" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M10 6h10M10 12h10M10 18h10M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></symbol>
+  <symbol id="i-poll" viewBox="0 0 24 24"><path d="M5 20V11M12 20V4M19 20v-7"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-proj" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="9" rx="2"/><circle cx="15" cy="11.5" r="2.2"/><path d="M7 19l2-3M17 19l-2-3"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 21a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+  <symbol id="i-appx" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 8h18M10 12l4 4M14 12l-4 4"/></symbol>
+  <symbol id="i-exam" viewBox="0 0 24 24"><path d="M3 9l9-4 9 4-9 4zM7 11v5c3 2 7 2 10 0v-5M21 9v6"/></symbol>
+  <symbol id="i-cast" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4M9 10.5l3-3 3 3M12 7.5V14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/><circle cx="12" cy="12" r="2.5"/></symbol>
+  <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 6.1A9 9 0 0 1 21 12a14 14 0 0 1-2.3 3M6.6 6.6A14 14 0 0 0 3 12a9 9 0 0 0 12.4 5.4M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
+  <symbol id="i-game" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="10" rx="5"/><path d="M7 12h4M9 10v4M15.5 11h.01M17.5 13h.01"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 19V5"/></symbol>
+  <symbol id="i-room" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h3M14 9h3M7 14h3M14 14h3"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+</svg>
+
+<div class="shell" id="shell">
+  <div class="demo" role="region" aria-label="Commandes de la maquette">
+    <b>Maquette · données fictives</b>
+    <span class="grp">Rôles :
+      <label><input type="checkbox" checked disabled> Enseignant</label>
+      <label><input type="checkbox" id="roleTech"> Technicien</label>
+      <label><input type="checkbox" id="roleEtab"> Établissement</label>
+    </span>
+    <span class="grp">Simuler :
+      <button type="button" id="simHelp">Demande d'aide</button>
+      <button type="button" id="simAlert">Alerte sensible</button>
+      <button type="button" id="simLost">Perte de connexion (poste 09)</button>
+    </span>
+    <span class="grp">
+      <button type="button" id="toStudent">Voir le poste 07 côté élève</button>
+      <label><input type="checkbox" id="showRefs"> Renvois à la spec</label>
+    </span>
+  </div>
+
+  <div class="app" id="app">
+    <header class="topbar" id="topbar"></header>
+    <div class="banners" id="banners"></div>
+    <div id="mainwrap" style="min-height:0;display:contents"></div>
+    <div class="actionbar" id="actionbar"></div>
+  </div>
+
+  <div class="student" id="student" hidden></div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div id="layer"></div>
+
+<script>
+(function(){
+'use strict';
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ic = (n, cls='') => `<svg class="ic ${cls}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const ref = t => `<span class="ref">${t}</span>`;
+const pad = n => String(n).padStart(2,'0');
+const fmt = m => `${Math.floor(m/60)}:${pad(m%60)}`;
+const plural = (n, w) => `${n} ${w}${n>1?'s':''}`;
+const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+const TEACHER = 'M. Durand';
+
+/* ---------- Données fictives ---------- */
+const NAMES = {1:['Léa B.'],2:['Mathis C.','Nora D.'],3:['Yanis E.'],5:['Chloé F.'],6:['Lucas G.','Emma H.'],7:['Inès M.','Hugo T.'],8:['Adam K.'],9:['Manon L.'],10:['Rayan P.'],11:['Camille R.'],12:['Théo S.'],13:['Lina V.'],15:['Noah W.'],16:['Zoé A.','Ethan B.'],17:['Sarah N.'],18:['Maël O.'],19:['Louis Q.'],21:['Jules X.'],22:['Lou Y.','Nathan Z.'],23:['Ambre D.'],24:['Kenza M.']};
+const STATE = {4:'off',20:'off',14:'on',18:'lost'};
+const STEP = {1:2,2:1,3:0,5:3,6:2,7:1,8:2,9:2,10:0,11:1,12:3,13:2,15:1,16:2,17:1,18:1,19:2,21:0,22:3,23:2,24:1};
+const RENDUS = {5:2,12:2,22:2,1:1,6:1,8:1,13:1,16:1,23:1,19:1};
+const APPKIND = ['pt','writer','term','browser','wire'];
+const APPNAME = {pt:'Packet Tracer — topologie.pkt',writer:'LibreOffice Writer — compte-rendu.odt',term:'Terminal — ip a',browser:'Firefox — Masque de sous-réseau',wire:'Wireshark — capture.pcapng',game:'Jeu — plein écran'};
+
+const TP_MODELS = [
+  {title:'Adressage IPv4', rendus:2, files:['consignes_TP3.pdf','topologie.pkt'], steps:[
+    {o:'Repérer la configuration réseau du poste', d:15, a:'Afficher les consignes', c:"Ouvrez un terminal et relevez l'adresse IP, le masque et la passerelle de votre poste."},
+    {o:'Calculer les adresses du sous-réseau', d:20, a:"Aide de l'IA", c:"À partir de 192.168.10.0/26, calculez l'adresse de réseau, la première et la dernière adresse utilisables, et l'adresse de diffusion."},
+    {o:'Configurer le routeur dans Packet Tracer', d:30, a:'Afficher les consignes', c:"Ouvrez topologie.pkt, configurez l'interface G0/0 du routeur et vérifiez la connectivité avec ping."},
+    {o:'Rédiger le compte rendu', d:15, a:'Rien', c:'Rédigez un compte rendu d’une page avec vos calculs et une capture du ping réussi.'}]},
+  {title:'Câblage et VLAN', rendus:1, files:['plan_baie.pdf'], steps:[
+    {o:'Identifier les ports du commutateur', d:15, a:'Afficher les consignes'},
+    {o:'Créer les VLAN 10 et 20', d:30, a:"Aide de l'IA"},
+    {o:'Tester l’isolation entre VLAN', d:20, a:'Rien'}]},
+  {title:'Mots de passe robustes', rendus:1, files:[], steps:[
+    {o:'Évaluer cinq mots de passe', d:10, a:'Rien'},
+    {o:'Construire une phrase de passe', d:15, a:'Afficher les consignes'},
+    {o:'Configurer un gestionnaire de mots de passe', d:25, a:"Aide de l'IA"}]},
+];
+const POLLS = [
+  {q:"Où en êtes-vous de l'étape 2 ?", opts:['Terminée','En cours','Je suis bloqué·e']},
+  {q:"Quel est le masque d'un /26 ?", opts:['255.255.255.0','255.255.255.192','255.255.255.224']},
+];
+const PREDEF = ['Pensez à enregistrer votre travail.','Il reste 10 minutes.','Regardez le tableau, s’il vous plaît.','N’oubliez pas de rendre votre compte rendu.'];
+const FILES = ['consignes_TP3.pdf','topologie.pkt','corrige_etape1.pdf'];
+const WEBLISTS = [
+  {id:null, t:'Aucun filtrage', s:'Accès web habituel du poste.'},
+  {id:'allow', t:'Liste d’autorisation « Sites du TP réseau »', s:'Seuls 4 sites sont accessibles.'},
+  {id:'block', t:'Liste de blocage « Réseaux sociaux »', s:'12 sites bloqués, le reste accessible.'},
+  {id:'all', t:'Tout bloquer', s:'Aucun site accessible.'},
+];
+
+const S = {
+  space:'seance', view:'plan', showScreens:false, projection:false, exam:false, broadcast:false, web:null,
+  start:9*60, end:11*60, now:10*60+42,
+  roles:{tech:false, etab:false},
+  sel:new Set(),
+  postes:[], helpQueue:[7,15], tpIndex:0, poll:null,
+  convs:{12:[{me:false,t:'10:38',x:"Je n'arrive pas à pinger la passerelle, c'est normal ?"}], 7:[{me:true,t:'10:30',x:'Pensez à noter le masque de sous-réseau.'}]},
+  unread:new Set([12]), openConv:null,
+  alerts:[], focus:null, pop:null, listFilter:'all', closed:false, placing:false,
+  collapsed:{}, lib:'tp', libSel:0, pairCode:null, sensOn:false, studentView:false,
+  student:{panel:true, msg:null, pollAnswered:false, files:[], rendus:[]},
+};
+for(let id=1; id<=24; id++){
+  const r = Math.floor((id-1)/6), c = (id-1)%6;
+  S.postes.push({id, label:pad(id), names:NAMES[id]||[], state:STATE[id]||'in', step:STEP[id]??0,
+    late:[3,10,21].includes(id), rendus:RENDUS[id]||0, paused:false, game:id===10,
+    app: id===10 ? 'game' : APPKIND[(id*7)%5], pos:{r,c},
+    apps: id===10 ? ['Packet Tracer','Firefox','Minecraft'] : ['Packet Tracer','Firefox','LibreOffice Writer']});
+}
+S.postes.push({id:25, label:'25', names:[], state:'on', step:0, late:false, rendus:0, paused:false, game:false, app:'writer', pos:null, apps:['Explorateur de fichiers'], host:'PC-B204-25'});
+const FREE = [{r:4,c:0},{r:4,c:1}];
+const P = id => S.postes.find(p => p.id === id);
+const placed = () => S.postes.filter(p => p.pos);
+const tp = () => TP_MODELS[S.tpIndex];
+
+/* ---------- Écrans factices ---------- */
+function screen(p){
+  const k = p.app, title = APPNAME[k];
+  let bd = '';
+  if(k==='writer') bd = `<div class="pg"><div class="ln" style="width:60%;height:8%;background:#9aa3b0"></div><div class="ln"></div><div class="ln" style="width:92%"></div><div class="ln" style="width:80%"></div><div class="ln" style="width:88%"></div></div>`;
+  else if(k==='term') bd = `<div class="ln w" style="width:40%"></div><div class="ln" style="width:75%"></div><div class="ln" style="width:62%"></div><div class="ln w" style="width:35%"></div><div class="ln" style="width:80%"></div><div class="ln" style="width:50%"></div>`;
+  else if(k==='browser') bd = `<div class="addr"></div><div class="blk" style="height:16%;width:70%"></div><div style="display:flex;gap:4%;flex:1"><div class="blk" style="flex:2"></div><div class="blk" style="flex:1;opacity:.6"></div></div>`;
+  else if(k==='pt') bd = `<div class="wire" style="left:24%;top:32%;width:28%;transform:rotate(14deg)"></div><div class="wire" style="left:52%;top:42%;width:26%;transform:rotate(-20deg)"></div><div class="wire" style="left:52%;top:46%;width:22%;transform:rotate(48deg)"></div><div class="node" style="left:14%;top:24%"></div><div class="node r" style="left:46%;top:38%"></div><div class="node" style="left:74%;top:22%"></div><div class="node" style="left:66%;top:66%"></div>`;
+  else if(k==='wire') bd = `<div class="ln" style="background:#cfd6e2"></div>`+'<div class="ln"></div>'.repeat(8);
+  else bd = '';
+  return `<div class="fs fs-${k}"><div class="tb">${esc(title)}</div><div class="bd">${bd}</div></div>`;
+}
+const masked = () => `<div class="masked">${ic('eyeoff')}<span>Image masquée<br>en mode projection</span></div>`;
+
+/* ---------- Cibles et retours ---------- */
+function targets(){
+  const explicit = S.sel.size > 0;
+  const base = explicit ? [...S.sel].map(P) : placed();
+  return { explicit, base,
+    ok: base.filter(p => p.state==='in'),
+    pending: base.filter(p => p.state==='lost'),
+    na: base.filter(p => p.state==='off' || p.state==='on') };
+}
+function retour(verb, t){
+  let s = `${verb} ${plural(t.ok.length,'poste')}`;
+  if(t.pending.length) s += ` · ${t.pending.length} en attente (${t.pending.map(p=>'poste '+p.label).join(', ')}, connexion perdue)`;
+  return s;
+}
+function naNote(t){
+  if(!t.explicit || !t.na.length) return '';
+  const why = t.na.map(p => `poste ${p.label} ${p.state==='off'?'est éteint':'n’a pas rejoint la séance'}`).join(', ');
+  return `S'applique à ${t.ok.length+t.pending.length} poste${t.ok.length+t.pending.length>1?'s':''} sur ${t.base.length} : ${why}.`;
+}
+
+/* ---------- Toasts ---------- */
+function toast(text, detail='', undo=null, refs=''){
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = `${ic('check')}<div class="tx">${esc(text)} ${refs?ref(refs):''}${detail?`<small>${esc(detail)}</small>`:''}</div>${undo?`<button type="button">${'Annuler'}</button>`:''}`;
+  if(undo) el.querySelector('button').onclick = () => { undo(); el.remove(); render(); toast('Action annulée.'); };
+  $('#toasts').appendChild(el);
+  setTimeout(() => el.remove(), undo ? 8000 : 5500);
+}
+
+/* ---------- Dialogue ---------- */
+function dialog({title, body, ok, danger=false, onOk, cancel='Annuler'}){
+  const layer = $('#layer');
+  layer.innerHTML = `<div class="backdrop" data-close><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlgT">
+    <h2 id="dlgT">${esc(title)}</h2>${body}
+    <div class="row"><button type="button" class="btn" data-close>${esc(cancel)}</button>${ok?`<button type="button" class="btn ${danger?'danger':'primary'}" id="dlgOk">${esc(ok)}</button>`:''}</div></div></div>`;
+  layer.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', e => { if(e.target===b) layer.innerHTML=''; }));
+  const okb = $('#dlgOk'); if(okb){ okb.onclick = () => { layer.innerHTML=''; onOk(); }; okb.focus(); }
+}
+
+/* ---------- Actions ---------- */
+function allPaused(){ const t = targets(); const l = [...t.ok, ...t.pending]; return l.length && l.every(p => p.paused); }
+function actPause(){
+  const t = targets(); const l = [...t.ok, ...t.pending];
+  if(!l.length){ toast('Aucun poste de la sélection n’est dans la séance.'); return; }
+  const prev = l.map(p => [p, p.paused]);
+  const resume = allPaused();
+  l.forEach(p => p.paused = !resume);
+  render();
+  toast(retour(resume ? 'Écran repris sur' : 'Écran mis en pause sur', t), resume ? '' : 'Message affiché : « Écran mis en pause par M. Durand. »', () => prev.forEach(([p,v]) => p.paused = v), 'RETOUR-1 RETOUR-3');
+}
+function actExam(){
+  const was = S.exam; S.exam = !S.exam; S.pop = null;
+  if(S.exam && !S.web) S.web = 'examallow';
+  if(!S.exam && S.web === 'examallow') S.web = null;
+  render();
+  toast(S.exam ? 'Mode examen activé jusqu’à ' + fmt(S.end) : 'Mode examen désactivé', S.exam ? 'Web : aucun site autorisé · applications interdites fermées · IA désactivée' : '', () => { S.exam = was; if(!was && S.web==='examallow') S.web=null; if(was) S.web='examallow'; }, 'EXAM-1 EXAM-2');
+}
+function actCast(){
+  S.broadcast = !S.broadcast; S.pop = null; render();
+  const t = targets();
+  toast(S.broadcast ? retour('Votre écran est diffusé sur', t) : 'Diffusion arrêtée', '', () => { S.broadcast = !S.broadcast; }, 'DIFF-1');
+}
+function actIdent(){
+  const t = targets(); S.pop = null;
+  const ids = [...t.ok, ...t.pending, ...t.na.filter(p=>p.state==='on')].map(p => p.id);
+  render();
+  ids.forEach(id => { const el = document.querySelector(`.tile[data-id="${id}"]`); if(el) el.classList.add('ident'); });
+  setTimeout(() => document.querySelectorAll('.tile.ident').forEach(el => el.classList.remove('ident')), 4000);
+  toast(`Numéros affichés sur l'écran de ${plural(ids.length,'poste')} pendant 4 s`, '', null, 'SALLE-4');
+}
+const ACTIONS = [
+  {id:'pause', label:() => allPaused() ? 'Reprendre' : 'Pause', long:() => allPaused() ? 'Reprendre l’écran' : 'Mettre l’écran en pause', icon:() => allPaused() ? 'play' : 'pause', key:'Alt+P', run:actPause},
+  {id:'msg', label:() => 'Message', long:() => 'Envoyer un message', icon:() => 'msg', key:'Alt+M', run:() => togglePop('msg')},
+  {id:'file', label:() => 'Fichier', long:() => 'Distribuer un fichier', icon:() => 'file', key:'Alt+F', run:() => togglePop('file')},
+  {id:'tp', label:() => 'TP', long:() => 'Lancer un TP', icon:() => 'list', key:'Alt+T', run:() => togglePop('tp')},
+  {id:'poll', label:() => 'Sondage', long:() => 'Lancer un sondage', icon:() => 'poll', key:'Alt+S', run:() => togglePop('poll')},
+];
+const MORE = [
+  {id:'web', long:() => 'Filtrage web…', icon:() => 'globe', run:() => togglePop('web')},
+  {id:'app', long:() => 'Fermer une application…', icon:() => 'appx', run:() => togglePop('app')},
+  {id:'exam', long:() => S.exam ? 'Quitter le mode examen' : 'Passer en mode examen', icon:() => 'exam', run:actExam},
+  {id:'cast', long:() => S.broadcast ? 'Arrêter la diffusion' : 'Diffuser mon écran', icon:() => 'cast', run:actCast},
+  {id:'ident', long:() => 'Identifier les postes', icon:() => 'target', run:actIdent},
+];
+function togglePop(k){ S.pop = (S.pop === k) ? null : k; render(); }
+
+function sendMessage(text){
+  const t = targets(); if(!text.trim()) return;
+  if(t.ok.some(p => p.id===7) || t.pending.some(p=>p.id===7)) S.student.msg = text.trim();
+  S.pop = null; render();
+  toast(retour('Message envoyé à', t), `« ${text.trim()} »`, null, 'MSG-1 RETOUR-1');
+}
+function distribute(name){
+  const t = targets();
+  if(t.ok.some(p => p.id===7)) S.student.files.push(name);
+  S.pop = null; render();
+  toast(`« ${name} » distribué`, retour('Reçu sur', t).replace('Reçu sur','reçu sur'), null, 'DISTRIB-1 DISTRIB-4');
+}
+function launchTP(i){
+  const go = () => {
+    S.tpIndex = i;
+    S.postes.forEach(p => { if(p.state==='in'||p.state==='lost'){ p.step=0; p.late=false; p.rendus=0; } });
+    S.pop = null; render();
+    toast(retour(`TP « ${TP_MODELS[i].title} » lancé sur`, targets()), TP_MODELS[i].files.length ? `Fichiers joints distribués : ${TP_MODELS[i].files.join(', ')}` : '', null, 'TP-1');
+  };
+  if(i === S.tpIndex){ S.pop = null; render(); toast(`Le TP « ${tp().title} » est déjà en cours.`); return; }
+  const n = targets().ok.length + targets().pending.length;
+  dialog({title:`Remplacer le TP en cours sur ${n} postes ?`, body:`<p>Le TP « ${esc(tp().title)} » sera remplacé par « ${esc(TP_MODELS[i].title)} ». Les rendus déjà reçus sont conservés. ${ref('TP-4 RETOUR-4')}</p>`, ok:'Remplacer le TP', onOk:go});
+}
+let pollTimer = null;
+function launchPoll(i){
+  const t = targets();
+  const who = [...t.ok].map(p => p.id);
+  S.poll = {q:POLLS[i].q, opts:POLLS[i].opts, votes:POLLS[i].opts.map(()=>0), who, answered:new Set(), shown:false, open:true};
+  S.student.pollAnswered = false;
+  S.pop = null; render();
+  toast(retour('Sondage lancé sur', t), `« ${POLLS[i].q} »`, null, 'SONDAGE-2');
+  clearInterval(pollTimer);
+  pollTimer = setInterval(() => {
+    if(!S.poll || !S.poll.open){ clearInterval(pollTimer); return; }
+    const left = S.poll.who.filter(id => id!==7 && !S.poll.answered.has(id));
+    if(left.length <= 2){ clearInterval(pollTimer); return; }
+    const id = left[Math.floor(Math.random()*left.length)];
+    S.poll.answered.add(id);
+    const w = [5,3,2]; const r = Math.random()*10; S.poll.votes[r < w[0] ? 0 : r < w[0]+w[1] ? 1 : 2]++;
+    renderPanel(); if(S.studentView) renderStudent();
+  }, 700);
+}
+function applyWeb(id){
+  const prev = S.web; S.web = id; S.pop = null; render();
+  const l = WEBLISTS.find(w => w.id===id);
+  toast(id ? retour('Filtrage web appliqué sur', targets()) : 'Filtrage web levé', id ? l.t : 'L’accès d’origine des postes est rétabli.', () => { S.web = prev; }, 'WEB-1 RETOUR-3');
+}
+function closeApp(p, app){
+  p.apps = p.apps.filter(a => a!==app);
+  if(app==='Minecraft'){ p.game=false; p.app='pt'; }
+  S.pop = null; render();
+  toast(`${app} fermée sur le poste ${p.label}`, `L'élève voit : « ${app} a été fermée par ${TEACHER}. »`, null, 'APP-1');
+}
+function clotureSeance(){
+  const t = placed().filter(p => p.state==='in' || p.state==='lost');
+  const n = t.length;
+  dialog({title:'Clôturer la séance ?', body:`<p>Les ${n} postes de la séance reviendront à leur état d'origine : écrans repris, filtrage levé, fichiers distribués retirés. ${ref('RETOUR-4 SEANCE-5')}</p>`, ok:'Clôturer la séance', danger:true, onOk:() => { S.closed = true; S.sel.clear(); S.pop=null; S.focus=null; render(); }});
+}
+
+/* ---------- Rendu : barre du haut ---------- */
+function renderTop(){
+  const spaces = [['preparer','Préparer','book'],['seance','Séance','room']];
+  if(S.roles.tech || S.roles.etab) spaces.push(['admin','Administrer','gear']);
+  if(!spaces.some(s => s[0]===S.space)) S.space = 'seance';
+  const roleTxt = ['Enseignant', S.roles.tech?'Technicien':null, S.roles.etab?'Établissement':null].filter(Boolean).join(' · ');
+  const hasAlert = S.alerts.some(a => !a.seen);
+  $('#topbar').innerHTML = `
+    <div class="brand"><span class="mark" aria-hidden="true"></span>Surveo</div>
+    <nav class="seg" aria-label="Espaces">${spaces.map(([k,l,i]) => `<button type="button" data-space="${k}" aria-pressed="${S.space===k}">${ic(i,'sm')}${l}</button>`).join('')}</nav>${ref('ESPACE-1 ESPACE-3')}
+    <div class="seance">${S.closed ? '<span class="room">B204</span><span>Séance clôturée</span>' : `<span class="room">B204</span><span class="mono">${fmt(S.start)} – ${fmt(S.end)}</span>
+      <button type="button" class="btn ghost" id="extend">+15 min</button>
+      <button type="button" class="btn" id="cloture">Clôturer</button>`}</div>
+    <span class="spacer"></span>
+    <button type="button" class="btn search" id="openPal" aria-label="Rechercher une action (Ctrl+K)">${ic('search','sm')}<span>Rechercher une action</span><span class="kbd">Ctrl K</span></button>${ref('RECH-1')}
+    <button type="button" class="btn" id="projBtn" aria-pressed="${S.projection}" title="Mode projection">${ic('proj')}<span>Projection</span></button>
+    <button type="button" class="btn ghost bell" id="bellBtn" aria-label="Notifications${hasAlert?' : une notification attend':''}">${ic('bell')}${hasAlert?'<span class="dot"></span>':''}</button>${ref('PROJ-4')}
+    <span class="who">${ic('lock','sm')}<span><b>${TEACHER}</b> · ${roleTxt}</span></span>`;
+  $('#topbar').querySelectorAll('[data-space]').forEach(b => b.onclick = () => { S.space = b.dataset.space; S.pop=null; render(); });
+  const ex = $('#extend'); if(ex) ex.onclick = () => { S.end += 15; render(); toast(`Séance prolongée jusqu'à ${fmt(S.end)}`, 'Les restrictions suivent la nouvelle heure de fin.', () => { S.end -= 15; }, 'SEANCE-3'); };
+  const cl = $('#cloture'); if(cl) cl.onclick = clotureSeance;
+  $('#openPal').onclick = openPalette;
+  $('#projBtn').onclick = () => { S.projection = !S.projection; render(); };
+  $('#bellBtn').onclick = openBell;
+}
+function openBell(){
+  const pending = S.alerts.filter(a => !a.seen);
+  if(S.projection){
+    dialog({title: pending.length ? 'Une notification attend' : 'Aucune notification', body:`<p>${pending.length ? 'Quittez le mode projection pour la consulter. Son contenu ne s’affiche jamais sur l’écran projeté.' : 'Rien à signaler.'} ${ref('PROJ-2 PROJ-4')}</p>`, cancel:'Fermer'});
+    return;
+  }
+  if(!pending.length && !S.alerts.length){ dialog({title:'Aucune notification', body:'<p>Rien à signaler pour cette séance.</p>', cancel:'Fermer'}); return; }
+  const a = pending[0] || S.alerts[S.alerts.length-1];
+  dialog({title:'Alerte : attention requise', body:`
+    <p><b style="color:var(--ink)">Poste ${a.poste}</b> · ${esc(P(+a.poste).names.join(', ')||'sans nom')} · ${a.t}</p>
+    <p>Niveau : <b style="color:var(--ink)">${a.level}</b><br>Motif : ${a.motif}</p>
+    <p class="note">Aucun texte saisi par l'élève n'est transmis. Cette alerte invite à une attention humaine ; elle ne déclenche rien sur le poste. ${ref('SENS-3 SENS-6')}</p>`,
+    ok:'Marquer comme vue', onOk:() => { a.seen = true; render(); }, cancel:'Plus tard'});
+}
+
+/* ---------- Bandeaux ---------- */
+function renderBanners(){
+  const b = [];
+  if(S.space !== 'seance' && !S.closed) b.push(`<div class="banner">${ic('room')}<span class="grow">Séance en cours en <b>B204</b> jusqu'à <span class="mono">${fmt(S.end)}</span></span><button type="button" class="btn" data-go="seance">Revenir à la séance</button>${ref('ESPACE-4')}</div>`);
+  if(S.space === 'seance' && !S.closed){
+    if(S.projection) b.push(`<div class="banner proj">${ic('proj')}<span class="grow"><b>Mode projection</b> · écrans d'élèves, conversations et alertes sont masqués ${ref('PROJ-2 PROJ-3')}</span><button type="button" class="btn" data-act="proj">Quitter le mode projection</button></div>`);
+    if(S.exam) b.push(`<div class="banner exam">${ic('exam')}<span class="grow"><b>Mode examen</b> jusqu'à <span class="mono">${fmt(S.end)}</span> · web : aucun site autorisé · applications interdites fermées · IA désactivée</span><button type="button" class="btn" data-act="exam">Quitter le mode examen</button></div>`);
+    if(S.web && S.web!=='examallow'){ const l = WEBLISTS.find(w=>w.id===S.web); b.push(`<div class="banner">${ic('globe')}<span class="grow">Filtrage web : <b>${esc(l.t)}</b> · cesse au plus tard à <span class="mono">${fmt(S.end)}</span></span><button type="button" class="btn" data-act="web">Lever le filtrage</button></div>`); }
+    if(S.broadcast) b.push(`<div class="banner">${ic('cast')}<span class="grow">Vous diffusez votre écran à la séance</span><button type="button" class="btn" data-act="cast">Arrêter la diffusion</button></div>`);
+  }
+  $('#banners').innerHTML = b.join('');
+  $('#banners').querySelectorAll('[data-go]').forEach(x => x.onclick = () => { S.space = x.dataset.go; render(); });
+  $('#banners').querySelectorAll('[data-act]').forEach(x => x.onclick = () => {
+    const a = x.dataset.act;
+    if(a==='proj'){ S.projection=false; render(); }
+    if(a==='exam') actExam();
+    if(a==='web') applyWeb(null);
+    if(a==='cast') actCast();
+  });
+}
+
+/* ---------- Zone principale ---------- */
+function renderMain(){
+  const w = $('#mainwrap');
+  if(S.space === 'preparer'){ w.innerHTML = prepHTML(); bindPrep(); return; }
+  if(S.space === 'admin'){ w.innerHTML = adminHTML(); bindAdmin(); return; }
+  if(S.closed){ w.innerHTML = closedHTML(); $('#reopen').onclick = () => location.reload(); return; }
+  w.innerHTML = `<div class="main">
+    <section class="stage" aria-label="Salle B204">
+      <div class="stage-head">
+        <div class="seg" role="group" aria-label="Vue">${[['plan','Plan'],['liste','Liste'],['mosaique','Mosaïque']].map(([k,l]) => `<button type="button" data-view="${k}" aria-pressed="${S.view===k}">${l}</button>`).join('')}</div>${ref('AFF-3')}
+        ${S.view==='plan' ? `<label class="switch"><input type="checkbox" id="scr" ${S.showScreens?'checked':''}> Écrans</label>${ref('AFF-4')}` : ''}
+        <span class="hint">${S.view==='plan' ? 'Cliquez des postes pour les sélectionner · double-clic : en grand' : S.view==='liste' ? 'Filtrez, puis sélectionnez les postes concernés' : 'Cliquez un écran pour le sélectionner · double-clic : en grand'}</span>
+      </div>
+      <div class="stage-body" id="stageBody">${S.view==='plan' ? planHTML() : S.view==='liste' ? listHTML() : mosaicHTML()}</div>
+      ${S.focus ? focusHTML() : ''}
+    </section>
+    <aside class="panel" id="panel" aria-label="Activités de la séance"></aside>
+  </div>`;
+  w.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { S.view = b.dataset.view; render(); });
+  const scr = $('#scr'); if(scr) scr.onchange = () => { S.showScreens = scr.checked; render(); };
+  bindStage();
+  renderPanel();
+}
+
+function tileHTML(p){
+  const helpIdx = S.helpQueue.indexOf(p.id);
+  const flags = [];
+  if(helpIdx >= 0) flags.push(`<span class="flag help" title="Demande d'aide, rang ${helpIdx+1}">${ic('hand','sm')}${helpIdx+1}</span>`);
+  if(p.late && p.state==='in') flags.push(`<span class="flag late" title="En retard sur l'étape">${ic('clock','sm')}</span>`);
+  if(p.paused) flags.push(`<span class="flag pause" title="Écran en pause">${ic('pause','sm')}</span>`);
+  if(p.game && p.state==='in') flags.push(`<span class="flag game" title="Activité de jeu probable (indication, pas une preuve)">${ic('game','sm')}?</span>`);
+  if(p.state==='lost') flags.push(`<span class="flag lost" title="Connexion perdue">${ic('wifioff','sm')}</span>`);
+  const steps = tp().steps.length;
+  const cls = ['tile','st-'+p.state, S.sel.has(p.id)?'sel':'', helpIdx>=0?'help':'', p.paused?'paused':''].join(' ');
+  let body;
+  if(p.state==='off') body = `<span class="t-names">—</span><span class="t-state">${ic('power','sm')}Éteint</span>`;
+  else if(p.state==='on') body = `<span class="t-names">${p.host?esc(p.host):'—'}</span><span class="t-state">${ic('power','sm')}Allumé · hors séance</span>`;
+  else {
+    const seg = Array.from({length:steps}, (_,i) => `<i class="${i<p.step?'done':i===p.step?'cur':''}"></i>`).join('');
+    body = `<span class="t-names">${esc(p.names.join(' · ') || 'Sans nom')}</span>
+      ${S.showScreens ? (S.projection ? masked() : screen(p)) : ''}
+      <span class="t-steps" aria-hidden="true">${seg}</span>
+      <span class="t-foot"><span>Étape ${p.step+1}/${steps}</span><span>Rendus ${p.rendus}/${tp().rendus}</span></span>
+      ${p.state==='lost' ? `<span class="t-state" style="color:var(--late)">${ic('wifioff','sm')}Connexion perdue</span>` : ''}`;
+  }
+  const label = `Poste ${p.label}, ${p.state==='off'?'éteint':p.state==='on'?'allumé hors séance':p.state==='lost'?'connexion perdue':'dans la séance'}${p.names.length?', '+p.names.join(' et '):''}`;
+  return `<button type="button" class="${cls}" data-id="${p.id}" aria-pressed="${S.sel.has(p.id)}" aria-label="${esc(label)}" style="grid-row:${p.pos.r+1};grid-column:${p.pos.c<3?p.pos.c+1:p.pos.c+2}">
+    <span class="t-head"><span class="t-num">${p.label}</span><span class="t-flags">${flags.join('')}</span></span>${body}
+    <span class="t-check" aria-hidden="true">${ic('check')}</span><span class="ident-num" aria-hidden="true">${p.label}</span></button>`;
+}
+function planHTML(){
+  const tiles = placed().map(tileHTML).join('');
+  const free = FREE.filter(f => !placed().some(p => p.pos.r===f.r && p.pos.c===f.c));
+  const slots = free.map(f => `<button type="button" class="slot" data-slot="${f.r},${f.c}" style="grid-row:${f.r+1};grid-column:${f.c+1}" ${S.placing?'':'tabindex="-1"'}>${S.placing?'Placer ici':'Place libre'}</button>`).join('');
+  const un = S.postes.filter(p => !p.pos);
+  return `<div class="front"><span class="desk">Bureau enseignant</span><div class="board">Tableau · vidéoprojecteur</div><span class="desk" style="visibility:hidden">Bureau enseignant</span></div>
+    <div class="plan ${S.placing?'placing':''}">${tiles}${slots}<div class="aisle" style="grid-row:1/5">Allée</div></div>
+    ${un.length ? `<div class="unplaced">${ic('plus','sm')}<span><b>${un.length} poste à placer</b> · ${esc(un[0].host)} ${ref('SALLE-3')}</span>
+      <button type="button" class="btn" id="identNew">${ic('target','sm')}Identifier</button>
+      <button type="button" class="btn ${S.placing?'':'primary'}" id="placeNew">${S.placing?'Annuler':'Placer sur le plan'}</button>
+      ${S.placing?'<span class="note">Cliquez une place libre sur le plan.</span>':''}</div>` : ''}`;
+}
+function listRows(){
+  let l = placed();
+  if(S.listFilter==='norendu') l = l.filter(p => (p.state==='in'||p.state==='lost') && p.rendus < tp().rendus);
+  if(S.listFilter==='late') l = l.filter(p => p.late && p.state==='in');
+  if(S.listFilter==='help') l = l.filter(p => S.helpQueue.includes(p.id));
+  return l;
+}
+function listHTML(){
+  const rows = listRows();
+  const f = [['all','Tous'],['norendu','N’ont pas tout rendu'],['late','En retard'],['help','Demande d’aide']];
+  const st = p => p.state==='in' ? `<span class="pill in">${ic('check','sm')}Dans la séance</span>` : p.state==='lost' ? `<span class="pill lost">${ic('wifioff','sm')}Connexion perdue</span>` : p.state==='on' ? `<span class="pill">${ic('power','sm')}Hors séance</span>` : `<span class="pill">${ic('power','sm')}Éteint</span>`;
+  return `<div class="filters">${f.map(([k,l]) => `<button type="button" class="chip" data-f="${k}" aria-pressed="${S.listFilter===k}">${l}</button>`).join('')}
+    ${S.listFilter!=='all' && rows.length ? `<button type="button" class="btn primary" id="selRows">Sélectionner ces ${rows.length} postes</button>${ref('SEL-1')}` : ''}</div>
+    <div class="tablewrap"><table><thead><tr><th>Poste</th><th>Élèves</th><th>État</th><th>Étape</th><th>Rendus</th><th>Signaux</th></tr></thead><tbody>
+    ${rows.map(p => { const hi = S.helpQueue.indexOf(p.id); return `<tr data-id="${p.id}" class="${S.sel.has(p.id)?'sel':''}" tabindex="0" aria-selected="${S.sel.has(p.id)}">
+      <td class="mono"><b>${p.label}</b></td><td>${esc(p.names.join(', ')||'—')}</td><td>${st(p)}</td>
+      <td>${p.state==='in'||p.state==='lost' ? `${p.step+1}/${tp().steps.length} · ${esc(tp().steps[p.step].o)}` : '—'}</td>
+      <td class="mono">${p.state==='in'||p.state==='lost' ? `${p.rendus}/${tp().rendus}` : '—'}</td>
+      <td><span class="t-flags">${hi>=0?`<span class="flag help">${ic('hand','sm')}${hi+1}</span>`:''}${p.late&&p.state==='in'?`<span class="flag late">${ic('clock','sm')}Retard</span>`:''}${p.paused?`<span class="flag pause">${ic('pause','sm')}Pause</span>`:''}${p.game&&p.state==='in'?`<span class="flag game">${ic('game','sm')}Jeu ?</span>`:''}</span></td></tr>`; }).join('')}
+    </tbody></table></div>${rows.length?'':'<p class="note">Aucun poste ne correspond à ce filtre.</p>'}`;
+}
+function mosaicHTML(){
+  const l = placed().filter(p => p.state==='in' || p.state==='lost');
+  return `<div class="mosaic">${l.map(p => `<button type="button" class="mcard ${S.sel.has(p.id)?'sel':''}" data-id="${p.id}" aria-pressed="${S.sel.has(p.id)}">
+    ${S.projection ? masked() : p.state==='lost' ? `<div class="masked">${ic('wifioff')}<span>Connexion perdue</span></div>` : screen(p)}
+    <span class="cap"><b class="mono">${p.label}</b><span>${esc(p.names.join(', ')||'Sans nom')}</span></span></button>`).join('')}</div>${S.projection?`<p class="note" style="margin-top:10px">${ref('PROJ-2')} En mode projection, les écrans ne s'affichent pas.</p>`:''}`;
+}
+function focusHTML(){
+  const p = P(S.focus);
+  return `<div class="focus" role="region" aria-label="Poste ${p.label} en grand">
+    <div class="stage-head"><b>Poste ${p.label}</b><span>${esc(p.names.join(', ')||'Sans nom')}</span><span class="spacer" style="flex:1"></span><button type="button" class="btn" id="focusClose">${ic('x','sm')}Revenir à la salle</button></div>
+    <div class="focus-body">
+      <div>${S.projection ? masked() : screen(p)}</div>
+      <div class="focus-side">
+        <div><h3>Travail</h3><p style="margin:4px 0 0">Étape ${p.step+1}/${tp().steps.length} · ${esc(tp().steps[p.step].o)}<br>Rendus ${p.rendus}/${tp().rendus}${p.late?' · <b style="color:var(--late)">en retard</b>':''}</p></div>
+        <div><h3>Applications ouvertes ${ref('APP-1')}</h3><div class="applist" style="margin-top:6px">${p.apps.map(a => `<div><span>${esc(a)}${a==='Minecraft'?' <span class="flag game">'+ic('game','sm')+'jeu ?</span>':''}</span><button type="button" class="btn" data-close-app="${esc(a)}">Fermer</button></div>`).join('')}</div></div>
+        <div class="toolbar"><button type="button" class="btn" id="fConv">${ic('msg','sm')}Conversation</button><button type="button" class="btn" id="fIdent">${ic('target','sm')}Identifier</button></div>
+      </div>
+    </div></div>`;
+}
+function closedHTML(){
+  const done = placed().filter(p => p.state==='in').length;
+  const lost = placed().filter(p => p.state==='lost');
+  return `<div class="stage" style="overflow:auto"><div class="closed">
+    <h2>Séance clôturée ${ref('RESTR-5')}</h2>
+    <p class="note">Récapitulatif des remises en état :</p>
+    <ul><li>${done} postes remis dans leur état d'origine : écrans repris, filtrage levé, fichiers distribués retirés.</li>
+    ${lost.map(p => `<li>Poste ${p.label} : injoignable, remise en état à son prochain démarrage ou à ${fmt(S.end+10)}.</li>`).join('')}
+    <li>Rendus conservés : ${placed().reduce((s,p)=>s+p.rendus,0)} fichiers, rangés par séance, TP et élèves.</li></ul>
+    <div><button type="button" class="btn primary" id="reopen">Recommencer la maquette</button></div></div></div>`;
+}
+
+function bindStage(){
+  const body = $('#stageBody'); if(!body) return;
+  body.querySelectorAll('.tile, .mcard').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = +el.dataset.id;
+      if(S.sel.has(id)) S.sel.delete(id); else S.sel.add(id);
+      S.pop = null; render();
+    });
+    el.addEventListener('dblclick', () => { const p = P(+el.dataset.id); if(p.state==='in'){ S.focus = p.id; S.sel = new Set([p.id]); render(); } });
+  });
+  body.querySelectorAll('tbody tr').forEach(tr => {
+    const tg = () => { const id = +tr.dataset.id; if(S.sel.has(id)) S.sel.delete(id); else S.sel.add(id); render(); };
+    tr.addEventListener('click', tg);
+    tr.addEventListener('keydown', e => { if(e.key===' '||e.key==='Enter'){ e.preventDefault(); tg(); } });
+  });
+  body.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { S.listFilter = b.dataset.f; render(); });
+  const sr = $('#selRows'); if(sr) sr.onclick = () => { S.sel = new Set(listRows().map(p => p.id)); render(); };
+  const pn = $('#placeNew'); if(pn) pn.onclick = () => { S.placing = !S.placing; render(); };
+  const idn = $('#identNew'); if(idn) idn.onclick = () => toast('Numéro 25 affiché sur l’écran de PC-B204-25 pendant 4 s', 'Repérez-le dans la salle pour le placer.', null, 'SALLE-4');
+  body.querySelectorAll('[data-slot]').forEach(s => s.onclick = () => {
+    if(!S.placing) return;
+    const [r,c] = s.dataset.slot.split(',').map(Number);
+    const p = P(25); p.pos = {r,c}; p.state = 'in'; p.names = []; p.step = 0;
+    S.placing = false; render();
+    toast('Poste 25 placé sur le plan de B204', 'Il garde cette place pour les séances suivantes, quel que soit l’enseignant.', null, 'SALLE-2 SALLE-3');
+  });
+  const fc = $('#focusClose'); if(fc) fc.onclick = () => { S.focus = null; render(); };
+  document.querySelectorAll('[data-close-app]').forEach(b => b.onclick = () => closeApp(P(S.focus), b.dataset.closeApp));
+  const fcv = $('#fConv'); if(fcv) fcv.onclick = () => { S.openConv = S.focus; S.unread.delete(S.focus); S.collapsed.conv=false; S.focus=null; render(); };
+  const fid = $('#fIdent'); if(fid) fid.onclick = () => toast(`Numéro ${P(S.focus).label} affiché sur l'écran du poste pendant 4 s`, '', null, 'SALLE-4');
+}
+
+/* ---------- Panneau ---------- */
+function psec(key, icon, title, count, hot, body){
+  const c = !!S.collapsed[key];
+  return `<section class="psec ${c?'collapsed':''}"><button type="button" class="ph" data-col="${key}" aria-expanded="${!c}">${ic(icon,'sm')}${title}<span class="count ${hot?'hot':''}">${count}</span>${ic('chev','sm chev')}</button><div class="pb">${body}</div></section>`;
+}
+function renderPanel(){
+  const el = $('#panel'); if(!el) return;
+  const out = [];
+  // Demandes d'aide
+  const hq = S.helpQueue.map((id,i) => { const p = P(id); return `<div class="hq"><span class="ord">${i+1}</span><span class="txt"><b>Poste ${p.label}</b> · ${esc(p.names.join(', ')||'sans nom')}<small>il y a ${4+i*3} min</small></span><button type="button" class="btn" data-done="${id}">Traité</button></div>`; }).join('');
+  out.push(psec('aide','hand',"Demandes d'aide", S.helpQueue.length, S.helpQueue.length>0, (hq || '<p class="note" style="margin:0">Aucune demande en attente.</p>') + ref('AIDE-2 PANNEAU-1')));
+  // TP
+  const inS = placed().filter(p => p.state==='in' || p.state==='lost');
+  const steps = tp().steps.map((s,i) => { const n = inS.filter(p => p.step===i).length; return `<span class="lbl">${i+1}</span><span class="track"><span class="fill" style="width:${inS.length? n/inS.length*100:0}%;display:block"></span></span><span class="n">${n}</span><span></span><span style="grid-column:2/4;font-size:12.5px;color:var(--muted);margin-top:-2px">${esc(s.o)}</span>`; }).join('');
+  const late = inS.filter(p => p.late).length;
+  const full = inS.filter(p => p.rendus >= tp().rendus).length;
+  out.push(psec('tp','list',`TP « ${esc(tp().title)} »`, `${inS.length} postes`, false, `<div class="stepbar">${steps}</div><div class="kv"><span>Rendus complets : ${full}/${inS.length}</span>${late?`<span class="late">${late} en retard</span>`:''}</div>
+    <div class="toolbar"><button type="button" class="btn" id="tpList">Voir en liste</button>${late?`<button type="button" class="btn" id="tpLate">Sélectionner les postes en retard</button>`:''}</div>`));
+  // Sondage
+  if(S.poll){
+    const tot = S.poll.votes.reduce((a,b)=>a+b,0);
+    const bars = S.poll.opts.map((o,i) => `<span>${esc(o)}</span><span class="mono">${S.poll.votes[i]}</span><span class="track"><span class="fill" style="display:block;width:${tot?S.poll.votes[i]/tot*100:0}%"></span></span>`).join('');
+    out.push(psec('poll','poll','Sondage', `${tot}/${S.poll.who.length}`, false, `<b>${esc(S.poll.q)}</b><div class="pollbar">${bars}</div>
+      <div class="toolbar">${S.poll.open?`<button type="button" class="btn" id="pollClose">Clore le sondage</button>`:'<span class="note">Sondage clos.</span>'}<button type="button" class="btn" id="pollShow" aria-pressed="${S.poll.shown}">${S.poll.shown?'Résultats montrés':'Montrer aux élèves'}</button></div>
+      ${S.poll.shown?`<p class="note" style="margin:0">Les élèves voient les résultats agrégés, sans aucun nom. ${ref('SONDAGE-5')}</p>`:''}`));
+  }
+  // Conversations
+  let cv;
+  if(S.openConv){
+    const p = P(S.openConv), th = S.convs[S.openConv] || [];
+    cv = `<button type="button" class="btn ghost" id="convBack" style="align-self:flex-start">← Toutes les conversations</button><b>Poste ${p.label} · ${esc(p.names.join(', ')||'sans nom')}</b>
+      ${S.projection ? `<div class="hidden-msg">${ic('eyeoff','sm')}Contenu masqué en mode projection ${ref('PROJ-2')}</div>` : `<div class="thread">${th.map(m => `<div class="bubble ${m.me?'me':''}">${esc(m.x)}<small>${m.me?TEACHER:esc(p.names[0]||'Élève')} · ${m.t}</small></div>`).join('')||'<p class="note" style="margin:0">Pas encore de message.</p>'}</div>
+      <form class="inrow" id="convForm"><input id="convIn" aria-label="Votre message" placeholder="Écrire au poste ${p.label}…" autocomplete="off"><button class="btn primary" type="submit">Envoyer</button></form>`}`;
+  } else {
+    const ids = Object.keys(S.convs).map(Number);
+    cv = ids.map(id => { const p = P(id), last = S.convs[id][S.convs[id].length-1]; return `<button type="button" class="conv" data-conv="${id}">${S.unread.has(id)?'<span class="unr" aria-label="non lu"></span>':''}<span style="flex:1;min-width:0"><span class="who2">Poste ${p.label} · ${esc(p.names.join(', '))}</span><span class="prev">${S.projection?'Contenu masqué en mode projection':esc(last.x)}</span></span></button>`; }).join('') + `<p class="note" style="margin:0">Chaque poste a une conversation privée avec vous. ${ref('CHAT-1 CHAT-2')}</p>`;
+  }
+  out.push(psec('conv','msg','Conversations', S.unread.size ? `${S.unread.size} non lu` : Object.keys(S.convs).length, S.unread.size>0, cv));
+  el.innerHTML = out.join('');
+  el.querySelectorAll('[data-col]').forEach(b => b.onclick = () => { S.collapsed[b.dataset.col] = !S.collapsed[b.dataset.col]; renderPanel(); });
+  el.querySelectorAll('[data-done]').forEach(b => b.onclick = () => { const id = +b.dataset.done; S.helpQueue = S.helpQueue.filter(x => x!==id); if(id===7) S.student.helpTaken = true; render(); toast(`Demande du poste ${P(id).label} marquée comme traitée`, 'L’élève voit que sa demande a été prise en compte.', null, 'AIDE-3 AIDE-4'); });
+  const tl = $('#tpList'); if(tl) tl.onclick = () => { S.view='liste'; S.listFilter='all'; render(); };
+  const tla = $('#tpLate'); if(tla) tla.onclick = () => { S.sel = new Set(inS.filter(p=>p.late).map(p=>p.id)); render(); };
+  const pc = $('#pollClose'); if(pc) pc.onclick = () => { S.poll.open = false; render(); toast('Sondage clos', 'La question disparaît chez les élèves.', null, 'SONDAGE-4'); };
+  const ps = $('#pollShow'); if(ps) ps.onclick = () => { S.poll.shown = !S.poll.shown; renderPanel(); };
+  el.querySelectorAll('[data-conv]').forEach(b => b.onclick = () => { S.openConv = +b.dataset.conv; S.unread.delete(S.openConv); render(); });
+  const cb = $('#convBack'); if(cb) cb.onclick = () => { S.openConv = null; renderPanel(); };
+  const cf = $('#convForm'); if(cf) cf.onsubmit = e => { e.preventDefault(); const v = $('#convIn').value.trim(); if(!v) return; (S.convs[S.openConv] = S.convs[S.openConv]||[]).push({me:true,t:fmt(S.now),x:v}); renderPanel(); $('#convIn').focus(); };
+}
+
+/* ---------- Barre d'actions ---------- */
+function renderBar(){
+  const bar = $('#actionbar');
+  if(S.space !== 'seance' || S.closed){ bar.hidden = true; return; }
+  bar.hidden = false;
+  const t = targets();
+  const label = t.explicit
+    ? `<strong>${plural(S.sel.size,'poste')} sélectionné${S.sel.size>1?'s':''}</strong><button type="button" id="clearSel">Tout désélectionner</button>`
+    : `<strong>Toute la salle</strong><span>· ${t.ok.length + t.pending.length} postes dans la séance</span>`;
+  const note = naNote(t);
+  bar.innerHTML = `<div class="target">${label}${ref(t.explicit?'SEL-1':'SEL-2')}${note?`<span class="note">${esc(note)} ${ref('SEL-4')}</span>`:''}</div>
+    <div class="actions">${ACTIONS.map(a => `<button type="button" class="bbtn" data-a="${a.id}" title="${esc(a.long())} (${a.key})" aria-expanded="${S.pop===a.id}">${ic(a.icon())}${esc(a.label())}</button>`).join('')}
+      <button type="button" class="bbtn" data-a="more" aria-expanded="${S.pop==='more'||['web','app'].includes(S.pop)}">${ic('more')}Plus</button>${ref('SEL-3')}</div>
+    ${S.pop ? `<div class="pop" role="dialog" aria-label="Action">${popHTML()}</div>` : ''}`;
+  const cs = $('#clearSel'); if(cs) cs.onclick = () => { S.sel.clear(); render(); };
+  bar.querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
+    const id = b.dataset.a;
+    if(id==='more'){ togglePop('more'); return; }
+    ACTIONS.find(a => a.id===id).run();
+  });
+  bindPop();
+}
+function popHTML(){
+  const t = targets(), n = t.ok.length + t.pending.length;
+  const scope = t.explicit ? plural(n,'poste') : `toute la salle (${n} postes)`;
+  switch(S.pop){
+    case 'more': return `<h3>Plus d'actions</h3>${MORE.map(m => `<button type="button" class="opt" data-more="${m.id}">${ic(m.icon())}<span>${esc(m.long())}</span></button>`).join('')}${ref('ERGO-3')}`;
+    case 'msg': return `<h3>Message à ${esc(scope)}</h3><p class="sub">Il s'affiche au premier plan chez l'élève. ${ref('MSG-2')}</p>
+      <div class="chips">${PREDEF.map(m => `<button type="button" data-pre="${esc(m)}">${esc(m)}</button>`).join('')}</div>
+      <textarea id="msgText" aria-label="Texte du message" placeholder="Écrire un message…"></textarea>
+      <div class="row"><button type="button" class="btn" data-x>Annuler</button><button type="button" class="btn primary" id="msgSend">Envoyer</button></div>`;
+    case 'file': return `<h3>Distribuer un fichier à ${esc(scope)}</h3><p class="sub">Il arrive dans le dossier Surveo de l'élève et sera retiré des postes de salle à la fin de la séance. ${ref('DISTRIB-2 DISTRIB-6')}</p>
+      ${FILES.map(f => `<button type="button" class="opt" data-file="${esc(f)}">${ic('file')}<span>${esc(f)}<small>Bibliothèque · récemment utilisé</small></span></button>`).join('')}
+      <label class="opt" style="cursor:pointer">${ic('plus')}<span>Choisir un autre fichier…</span><input type="file" id="fileIn" class="sr"></label>`;
+    case 'tp': return `<h3>Lancer un TP sur ${esc(scope)}</h3><p class="sub">Choisissez dans votre bibliothèque. Pour créer ou modifier un modèle, passez par Préparer. ${ref('PANNEAU-3')}</p>
+      ${TP_MODELS.map((m,i) => `<button type="button" class="opt ${i===S.tpIndex?'cur':''}" data-tp="${i}">${ic('list')}<span>${esc(m.title)}<small>${m.steps.length} étapes · ${m.steps.reduce((s,x)=>s+x.d,0)} min · ${plural(m.rendus,'rendu')} attendu${m.rendus>1?'s':''}${i===S.tpIndex?' · en cours':''}</small></span></button>`).join('')}`;
+    case 'poll': return S.poll && S.poll.open ? `<h3>Un sondage est en cours</h3><p class="sub">« ${esc(S.poll.q)} »</p><div class="row"><button type="button" class="btn" data-x>Fermer</button><button type="button" class="btn primary" id="pollClose2">Clore le sondage</button></div>`
+      : `<h3>Sondage pour ${esc(scope)}</h3><p class="sub">La question s'affiche au premier plan chez l'élève.</p>${POLLS.map((q,i) => `<button type="button" class="opt" data-poll="${i}">${ic('poll')}<span>${esc(q.q)}<small>${q.opts.map(esc).join(' · ')}</small></span></button>`).join('')}`;
+    case 'web': return `<h3>Filtrage web pour ${esc(scope)}</h3><p class="sub">Le filtrage cesse au plus tard à ${fmt(S.end)}, fin de la séance. ${ref('RESTR-1 WEB-3')}</p>
+      ${WEBLISTS.map((w,i) => `<label class="radio"><input type="radio" name="web" value="${i}" ${S.web===w.id?'checked':''}><span>${esc(w.t)}<small>${esc(w.s)}</small></span></label>`).join('')}
+      <div class="row"><button type="button" class="btn" data-x>Annuler</button><button type="button" class="btn primary" id="webApply">Appliquer</button></div>`;
+    case 'app': {
+      const one = S.sel.size===1 ? P([...S.sel][0]) : null;
+      if(!one || one.state!=='in') return `<h3>Fermer une application</h3><p class="sub">Sélectionnez un seul poste dans la séance pour voir ses applications ouvertes. ${ref('APP-1')}</p><div class="row"><button type="button" class="btn" data-x>Fermer</button></div>`;
+      return `<h3>Applications ouvertes · poste ${one.label}</h3><p class="sub">L'élève est prévenu de la fermeture. ${ref('APP-1')}</p>
+        ${one.apps.map(a => `<div class="opt" style="cursor:default">${ic('appx')}<span style="flex:1">${esc(a)}${a==='Minecraft'?'<small>Activité de jeu probable : une indication, pas une preuve</small>':''}</span><button type="button" class="btn" data-capp="${esc(a)}">Fermer</button></div>`).join('')}`;
+    }
+  }
+  return '';
+}
+function bindPop(){
+  const pop = document.querySelector('.pop'); if(!pop) return;
+  pop.querySelectorAll('[data-x]').forEach(b => b.onclick = () => togglePop(null));
+  pop.querySelectorAll('[data-more]').forEach(b => b.onclick = () => MORE.find(m => m.id===b.dataset.more).run());
+  pop.querySelectorAll('[data-pre]').forEach(b => b.onclick = () => { $('#msgText').value = b.dataset.pre; $('#msgText').focus(); });
+  const ms = $('#msgSend'); if(ms) ms.onclick = () => sendMessage($('#msgText').value);
+  const mt = $('#msgText'); if(mt) mt.focus();
+  pop.querySelectorAll('[data-file]').forEach(b => b.onclick = () => distribute(b.dataset.file));
+  const fi = $('#fileIn'); if(fi) fi.onchange = () => { if(fi.files[0]) distribute(fi.files[0].name); };
+  pop.querySelectorAll('[data-tp]').forEach(b => b.onclick = () => launchTP(+b.dataset.tp));
+  pop.querySelectorAll('[data-poll]').forEach(b => b.onclick = () => launchPoll(+b.dataset.poll));
+  const pc2 = $('#pollClose2'); if(pc2) pc2.onclick = () => { S.poll.open=false; S.pop=null; render(); };
+  const wa = $('#webApply'); if(wa) wa.onclick = () => { const r = pop.querySelector('input[name=web]:checked'); applyWeb(r ? WEBLISTS[+r.value].id : null); };
+  pop.querySelectorAll('[data-capp]').forEach(b => b.onclick = () => closeApp(P([...S.sel][0]), b.dataset.capp));
+}
+
+/* ---------- Espace Préparer ---------- */
+const LIB = [
+  ['tp','Modèles de TP', TP_MODELS.length],['poll','Sondages', POLLS.length],['msg','Messages prédéfinis', PREDEF.length],
+  ['web','Listes de sites', 2],['apps','Applications interdites', 1],['class','Listes de classe', 3]];
+function prepHTML(){
+  let c = '';
+  if(S.lib==='tp'){
+    const m = TP_MODELS[S.libSel];
+    c = `<h2 class="t">Modèles de TP</h2>
+      <div class="toolbar"><button type="button" class="btn primary">${ic('plus','sm')}Nouveau modèle</button><button type="button" class="btn">Proposer avec l'IA à partir d'un cours…</button><button type="button" class="btn ghost">Importer</button><button type="button" class="btn ghost">Exporter</button>${ref('MODELE-1 MODELE-4 MODELE-5')}</div>
+      <div class="cards">${TP_MODELS.map((x,i) => `<button type="button" class="card ${i===S.libSel?'cur':''}" data-lsel="${i}"><h3>${esc(x.title)}</h3><p>${x.steps.length} étapes · ${x.steps.reduce((s,y)=>s+y.d,0)} min · ${plural(x.rendus,'rendu')} attendu${x.rendus>1?'s':''}</p><p>${x.files.length?'Fichiers joints : '+x.files.map(esc).join(', '):'Aucun fichier joint'}</p></button>`).join('')}</div>
+      <div><h3 style="margin:0 0 8px;font-size:16px">${esc(m.title)} · étapes</h3><div class="steps">
+        ${m.steps.map((s,i) => `<div class="st"><span class="no">${i+1}</span><span>${esc(s.o)}</span><span class="du">${s.d} min</span><span class="ac">Si dépassement : ${esc(s.a)}</span></div>`).join('')}</div></div>
+      <p class="note">Un modèle proposé par l'IA s'ouvre ici en modification : rien n'est lancé sans votre relecture.</p>`;
+  } else if(S.lib==='poll'){
+    c = `<h2 class="t">Sondages</h2><div class="cards">${POLLS.map(q => `<div class="card" style="cursor:default"><h3>${esc(q.q)}</h3><p>${q.opts.map(esc).join(' · ')}</p></div>`).join('')}</div>`;
+  } else if(S.lib==='msg'){
+    c = `<h2 class="t">Messages prédéfinis</h2><div class="steps">${PREDEF.map(m => `<div class="st" style="grid-template-columns:1fr auto"><span>${esc(m)}</span><button type="button" class="btn ghost">Modifier</button></div>`).join('')}</div>`;
+  } else if(S.lib==='web'){
+    c = `<h2 class="t">Listes de sites</h2><div class="cards"><div class="card" style="cursor:default"><h3>Sites du TP réseau</h3><p>Liste d'autorisation · 4 sites</p><p class="mono">cisco.com · netacad.com · fr.wikipedia.org · subnet-calculator.com</p></div><div class="card" style="cursor:default"><h3>Réseaux sociaux</h3><p>Liste de blocage · 12 sites</p></div></div>`;
+  } else if(S.lib==='apps'){
+    c = `<h2 class="t">Applications interdites</h2><div class="card" style="cursor:default"><h3>Jeux</h3><p>Minecraft, Steam, Roblox, Fortnite, League of Legends</p></div>`;
+  } else {
+    c = `<h2 class="t">Listes de classe</h2><div class="cards">${['BTS SIO 1A · 24 élèves','Terminale STI2D · 28 élèves','Bac pro CIEL · 15 élèves'].map(x => `<div class="card" style="cursor:default"><h3>${x.split(' · ')[0]}</h3><p>${x.split(' · ')[1]} · importée d'un fichier</p></div>`).join('')}</div>`;
+  }
+  return `<div class="space"><nav aria-label="Bibliothèque"><h2>Bibliothèque</h2>${LIB.map(([k,l,n]) => `<button type="button" data-lib="${k}" aria-current="${S.lib===k}">${l}<span>${n}</span></button>`).join('')}</nav><div class="content">${c}</div></div>`;
+}
+function bindPrep(){
+  document.querySelectorAll('[data-lib]').forEach(b => b.onclick = () => { S.lib = b.dataset.lib; S.libSel = 0; render(); });
+  document.querySelectorAll('[data-lsel]').forEach(b => b.onclick = () => { S.libSel = +b.dataset.lsel; render(); });
+}
+
+/* ---------- Espace Administrer ---------- */
+function adminHTML(){
+  const cards = [];
+  if(S.roles.tech){
+    cards.push(`<div class="acard"><h3>${ic('room','sm')}Salles et plans<span class="role">Technicien</span></h3>
+      <table><tbody>${[['B204','25 postes','Plan à jour'],['B206','18 postes','2 postes à placer'],['C102','30 postes','Plan à jour']].map(r => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td class="note">${r[2]}</td></tr>`).join('')}</tbody></table>
+      <div class="toolbar"><button type="button" class="btn">Modifier le plan de B204</button><button type="button" class="btn ghost">Préparer un paquet d'installation…</button></div></div>`);
+    cards.push(`<div class="acard"><h3>${ic('gear','sm')}Postes de B204<span class="role">Technicien</span></h3>
+      <table><thead><tr><th>Poste</th><th>Déploiement</th><th>Version</th></tr></thead><tbody>
+      ${[['01','Sans droits admin','2.3.1'],['02','Sans droits admin','2.3.1'],['07','Établissement','2.3.1'],['14','Sans droits admin','2.2.0']].map(r => `<tr><td class="mono">${r[0]}</td><td>${r[1]}</td><td class="mono">${r[2]}</td></tr>`).join('')}</tbody></table>
+      <p class="note">Sans droits d'administration, la maîtrise est coopérative : la console signale toute sortie de restriction. ${ref('MODE-2 MODE-3')}</p></div>`);
+    cards.push(`<div class="acard"><h3>${ic('appx','sm')}Outils techniques<span class="role">Technicien</span></h3>
+      <div class="toolbar"><button type="button" class="btn">Console de commandes…</button><button type="button" class="btn">Fichiers d'un poste…</button><button type="button" class="btn">Processus d'un poste…</button></div>
+      <p class="note">Chaque utilisation est consignée au journal d'audit. Ces outils n'apparaissent jamais dans l'espace Séance. ${ref('ROLE-4 AUDIT-1')}</p></div>`);
+  }
+  cards.push(`<div class="acard"><h3>${ic('lock','sm')}Appairage d'une console<span class="role">${S.roles.tech?'Technicien':'Établissement'}</span></h3>
+    ${S.pairCode ? `<div class="code">${S.pairCode}</div><p class="note">Valable 10 minutes · accorde le rôle Enseignant. Le collègue saisit ce code dans sa console. ${ref('PAIR-1 PAIR-3')}</p>` : '<p class="note">Créez un code temporaire pour autoriser la console d’un collègue.</p>'}
+    <div class="toolbar"><button type="button" class="btn primary" id="genCode">${S.pairCode?'Nouveau code':'Créer un code d’appairage'}</button></div></div>`);
+  if(S.roles.etab){
+    cards.push(`<div class="acard"><h3>${ic('bell','sm')}Modules sensibles<span class="role">Établissement</span></h3>
+      <label class="switch" style="color:var(--ink)"><input type="checkbox" id="sensT" ${S.sensOn?'checked':''}> Détection de harcèlement et de détresse</label>
+      <p class="note">${S.sensOn ? 'Activé. Analyse sur le poste, aucun texte transmis. Destinataire des alertes : l’enseignant responsable de la séance.' : 'Désactivé par défaut. L’activation suppose une analyse d’impact (AIPD) et l’information des élèves.'} ${ref('SENS-2 SENS-5')}</p></div>`);
+    cards.push(`<div class="acard"><h3>${ic('clock','sm')}Conservation<span class="role">Établissement</span></h3>
+      <table><tbody><tr><td>Rendus de TP</td><td class="mono">1 an</td></tr><tr><td>Journal d'audit</td><td class="mono">6 mois</td></tr><tr><td>Traçabilité des séances</td><td>Désactivée</td></tr><tr><td>Alertes sensibles</td><td>Non conservées</td></tr></tbody></table>
+      <p class="note">Suppression automatique à l'échéance. ${ref('CONSERV-2 CONSERV-3')}</p></div>`);
+    cards.push(`<div class="acard"><h3>${ic('list','sm')}Journal d'audit<span class="role">Établissement</span></h3>
+      <div class="audit"><div><span class="t">10:41</span><span>M. Durand · filtrage web appliqué · B204</span></div><div><span class="t">09:58</span><span>Mme Leroy · console de commandes ouverte · poste C102-12</span></div><div><span class="t">09:02</span><span>M. Durand · séance ouverte · B204</span></div><div><span class="t">Hier</span><span>Mme Leroy · console appairée : « Portable de M. Petit »</span></div></div>
+      <p class="note">Qui, quoi, quand, sur quel poste : jamais le contenu des échanges. ${ref('AUDIT-2 AUDITC-2')}</p></div>`);
+  }
+  return `<div class="space" style="grid-template-columns:1fr"><div class="content"><h2 class="t">Administrer</h2><p class="note" style="margin-top:-8px">Le contenu de cet espace suit vos rôles. Cochez « Technicien » ou « Établissement » dans la barre de la maquette pour en voir davantage. ${ref('ESPACE-3')}</p><div class="admin">${cards.join('')}</div></div></div>`;
+}
+function bindAdmin(){
+  const g = $('#genCode'); if(g) g.onclick = () => { const a='ACDEFGHJKMNPQRTUVWXY3479'; let s=''; for(let i=0;i<6;i++) s+=a[Math.floor(Math.random()*a.length)]; S.pairCode = s.slice(0,3)+'-'+s.slice(3); render(); };
+  const st = $('#sensT'); if(st) st.onchange = () => {
+    if(st.checked){
+      st.checked = false;
+      dialog({title:'Activer la détection de harcèlement et de détresse ?', body:'<p>L’analyse se fait sur les postes ; aucun texte saisi n’est transmis ni conservé. L’établissement, responsable du traitement, doit avoir réalisé une analyse d’impact (AIPD) et informé les élèves.</p>', ok:'Activer le module', onOk:() => { S.sensOn = true; render(); toast('Module activé', 'Consigné au journal d’audit.', null, 'SENS-2 AUDIT-1'); }});
+    } else { S.sensOn = false; render(); toast('Module désactivé', '', null, ''); }
+  };
+}
+
+/* ---------- Côté élève (poste 07) ---------- */
+function renderStudent(){
+  const st = $('#student');
+  if(!S.studentView){ st.hidden = true; return; }
+  st.hidden = false;
+  const p = P(7), m = tp(), cur = p.step;
+  const helpIdx = S.helpQueue.indexOf(7);
+  const inExam = S.exam;
+  const pollFg = S.poll && S.poll.open && S.poll.who.includes(7) && !S.student.pollAnswered;
+  const ov = [];
+  if(p.paused) ov.push(`<div class="overlay pause" role="alert">${ic('pause')}<div class="big">Écran mis en pause par ${TEACHER}.</div><div>Votre travail est conservé tel quel. ${ref('ECRAN-2 ECRAN-4')}</div></div>`);
+  else if(S.student.msg) ov.push(`<div class="overlay fg"><div class="fgcard" role="alertdialog" aria-labelledby="smT"><h3 id="smT">Message de ${TEACHER} ${ref('MSG-2 AGENT-4')}</h3><p style="margin:0">${esc(S.student.msg)}</p><div style="display:flex;justify-content:flex-end"><button type="button" class="btn primary" id="smOk">J'ai compris</button></div></div></div>`);
+  else if(pollFg) ov.push(`<div class="overlay fg"><div class="fgcard" role="dialog" aria-labelledby="spT"><h3 id="spT">Sondage de ${TEACHER} ${ref('SONDAGE-2')}</h3><p style="margin:0">${esc(S.poll.q)}</p>${S.poll.opts.map((o,i) => `<button type="button" class="opt" data-ans="${i}">${esc(o)}</button>`).join('')}</div></div>`);
+  const showRes = S.poll && S.poll.shown;
+  st.innerHTML = `
+    <div class="desk-area">
+      <div class="swin"><div class="tb">LibreOffice Writer — compte-rendu-TP3.odt</div><div class="pg"><b>Compte rendu · ${esc(m.title)}</b><div class="ln" style="width:85%"></div><div class="ln" style="width:92%"></div><div class="ln" style="width:70%"></div><span>Réseau : 192.168.10.0/26</span><div class="ln" style="width:88%"></div><div class="ln" style="width:60%"></div></div></div>
+      ${S.broadcast ? `<div class="castwin"><header>${ic('cast','sm')}${TEACHER} partage son écran ${ref('DIFF-2 DIFF-6')}</header>${screen({app:'pt'})}</div>` : ''}
+      <div class="indic ${inExam?'exam':''}"><span class="live" aria-hidden="true"></span><span>${inExam ? `<b>Examen</b> jusqu'à ${fmt(S.end)}` : `Séance de ${TEACHER} jusqu'à ${fmt(S.end)}`}</span>${ref('REJ-4 AGENT-2')}<button type="button" class="btn" id="spToggle" aria-expanded="${S.student.panel}">Surveo</button></div>
+      ${S.student.panel ? `<aside class="spanel" aria-label="Panneau élève">
+        <header>${ic('room','sm')}Surveo · poste 07${ref('AGENT-3')}<span style="flex:1"></span><button type="button" class="btn ghost" id="spClose" aria-label="Réduire le panneau">${ic('x','sm')}</button></header>
+        <div class="sb">
+          <section><h4>TP « ${esc(m.title)} »</h4>
+            ${m.steps.map((s,i) => `<label class="sstep ${i===cur?'cur':''}"><input type="checkbox" data-step="${i}" ${i<cur?'checked':''}><span>${esc(s.o)}${i===cur?`<br><span class="note">Temps indicatif restant : ${Math.max(1,s.d-14)} min</span>`:''}</span></label>`).join('')}
+            ${m.steps[cur] && m.steps[cur].c ? `<div class="consigne">${esc(m.steps[cur].c)}</div>` : ''}
+            <p class="note" style="margin:6px 0 0">Vous cochez vous-même les étapes terminées. ${ref('TP-6')}</p></section>
+          <section><h4>Rendre mon travail · ${S.student.rendus.length + p.rendus}/${m.rendus}</h4>
+            <div class="drop">Glissez un fichier ici<button type="button" class="btn" id="srendu">Choisir un fichier</button></div>
+            ${S.student.rendus.map(r => `<div class="ack">${ic('check','sm')}« ${esc(r.name)} » ${r.ok ? `reçu par l'enseignant à ${r.t}` : 'en attente d’envoi'}</div>`).join('')}${S.student.rendus.length?ref('RENDU-2'):''}</section>
+          ${S.student.files.length ? `<section><h4>Fichiers reçus</h4>${S.student.files.map(f => `<div class="opt" style="cursor:default">${ic('file')}<span>${esc(f)}<small>Retiré de ce poste à la fin de la séance</small></span></div>`).join('')}${ref('DISTRIB-3 DISTRIB-8')}</section>` : ''}
+          ${showRes ? `<section><h4>Résultats du sondage</h4><b>${esc(S.poll.q)}</b><div class="pollbar" style="margin-top:6px">${S.poll.opts.map((o,i) => { const tot = S.poll.votes.reduce((a,b)=>a+b,0); return `<span>${esc(o)}</span><span class="mono">${S.poll.votes[i]}</span><span class="track"><span class="fill" style="display:block;width:${tot?S.poll.votes[i]/tot*100:0}%"></span></span>`; }).join('')}</div><p class="note" style="margin:6px 0 0">Résultats de la classe, sans aucun nom. ${ref('SONDAGE-5')}</p></section>` : ''}
+          <section><h4>Aide</h4>
+            ${helpIdx>=0 ? `<p style="margin:0 0 6px">Demande envoyée · en attente, ${helpIdx===0?'vous êtes le premier poste':'rang '+(helpIdx+1)}. ${ref('AIDE-4')}</p><button type="button" class="btn" id="helpCancel">Annuler ma demande</button>`
+              : S.student.helpTaken ? `<p style="margin:0 0 6px" class="ack">${ic('check','sm')}${TEACHER} a pris en compte votre demande.</p><button type="button" class="btn" id="helpAsk">${ic('hand','sm')}Demander de l'aide</button>`
+              : `<button type="button" class="btn primary" id="helpAsk">${ic('hand','sm')}Demander de l'aide</button>`}</section>
+          <section><h4>Conversation avec ${TEACHER}</h4><div class="thread">${(S.convs[7]||[]).map(mm => `<div class="bubble ${mm.me?'':'me'}">${esc(mm.x)}<small>${mm.me?TEACHER:'Vous'} · ${mm.t}</small></div>`).join('')}</div>
+            <form class="inrow" id="sconv" style="margin-top:6px"><input id="sconvIn" aria-label="Message à l'enseignant" placeholder="Écrire à ${TEACHER}…" autocomplete="off"><button class="btn" type="submit">Envoyer</button></form></section>
+        </div></aside>` : ''}
+      ${ov.join('')}
+    </div>
+    <div class="taskbar"><span>Applications</span><span>LibreOffice Writer</span><span>Packet Tracer</span><span class="clk">${fmt(S.now)}</span></div>`;
+  const tg = $('#spToggle'); if(tg) tg.onclick = () => { S.student.panel = !S.student.panel; renderStudent(); };
+  const sc = $('#spClose'); if(sc) sc.onclick = () => { S.student.panel = false; renderStudent(); };
+  st.querySelectorAll('[data-step]').forEach(cb => cb.onchange = () => { const i = +cb.dataset.step; p.step = cb.checked ? Math.min(i+1, m.steps.length-1) : i; p.late = false; renderStudent(); });
+  const sr = $('#srendu'); if(sr) sr.onclick = () => { const r = {name:'compte-rendu-TP3.odt', ok:false}; S.student.rendus.push(r); renderStudent(); setTimeout(() => { r.ok = true; r.t = fmt(S.now+1); p.rendus = Math.min(m.rendus, p.rendus+1); S.student.rendus = S.student.rendus.filter(x => x!==r); S.student.rendus.push(r); renderStudent(); }, 1200); };
+  const ha = $('#helpAsk'); if(ha) ha.onclick = () => { if(!S.helpQueue.includes(7)) S.helpQueue.push(7); S.student.helpTaken = false; renderStudent(); };
+  const hc = $('#helpCancel'); if(hc) hc.onclick = () => { S.helpQueue = S.helpQueue.filter(x => x!==7); renderStudent(); };
+  const so = $('#smOk'); if(so) so.onclick = () => { S.student.msg = null; renderStudent(); };
+  st.querySelectorAll('[data-ans]').forEach(b => b.onclick = () => { S.poll.votes[+b.dataset.ans]++; S.poll.answered.add(7); S.student.pollAnswered = true; renderStudent(); });
+  const sf = $('#sconv'); if(sf) sf.onsubmit = e => { e.preventDefault(); const v = $('#sconvIn').value.trim(); if(!v) return; (S.convs[7] = S.convs[7]||[]).push({me:false,t:fmt(S.now),x:v}); S.unread.add(7); renderStudent(); };
+}
+
+/* ---------- Palette (Ctrl+K) ---------- */
+function palItems(){
+  const it = [];
+  ACTIONS.forEach(a => it.push({t:a.long(), g:'Action', i:a.icon(), run:a.run}));
+  MORE.forEach(a => it.push({t:a.long().replace('…',''), g:'Action', i:a.icon(), run:a.run}));
+  it.push({t: S.projection ? 'Quitter le mode projection' : 'Activer le mode projection', g:'Affichage', i:'proj', run:() => { S.projection = !S.projection; render(); }});
+  [['plan','Vue plan'],['liste','Vue liste'],['mosaique','Vue mosaïque']].forEach(([k,l]) => it.push({t:l, g:'Affichage', i:'room', run:() => { S.space='seance'; S.view=k; render(); }}));
+  it.push({t:'Aller à Préparer', g:'Espace', i:'book', run:() => { S.space='preparer'; render(); }});
+  it.push({t:'Aller à Séance', g:'Espace', i:'room', run:() => { S.space='seance'; render(); }});
+  if(S.roles.tech || S.roles.etab) it.push({t:'Aller à Administrer', g:'Espace', i:'gear', run:() => { S.space='admin'; render(); }});
+  it.push({t:'Prolonger la séance de 15 min', g:'Séance', i:'clock', run:() => { S.end += 15; render(); toast(`Séance prolongée jusqu'à ${fmt(S.end)}`); }});
+  it.push({t:'Clôturer la séance', g:'Séance', i:'x', run:clotureSeance});
+  placed().filter(p => p.state==='in').forEach(p => it.push({t:`Poste ${p.label} · ${p.names.join(', ')||'sans nom'}`, g:'Poste', i:'target', run:() => { S.space='seance'; S.sel = new Set([p.id]); render(); }}));
+  return it;
+}
+function openPalette(){
+  const layer = $('#layer');
+  layer.innerHTML = `<div class="backdrop" data-close><div class="palette" role="dialog" aria-modal="true" aria-label="Rechercher une action"><input id="palIn" placeholder="Tapez une action ou un poste : pause, distribuer, 07…" autocomplete="off" role="combobox" aria-controls="palList" aria-expanded="true"><ul id="palList" role="listbox"></ul></div></div>`;
+  const inp = $('#palIn'), ul = $('#palList'); let idx = 0, cur = [];
+  const draw = () => {
+    const q = norm(inp.value.trim());
+    cur = palItems().filter(x => !q || norm(x.t).includes(q) || norm(x.g).includes(q)).slice(0, 12);
+    idx = Math.min(idx, Math.max(0, cur.length-1));
+    ul.innerHTML = cur.length ? cur.map((x,i) => `<li role="option" data-i="${i}" aria-selected="${i===idx}">${ic(x.i,'sm')}${esc(x.t)}<span class="grp">${x.g}</span></li>`).join('') : `<li class="empty" aria-disabled="true">Aucune action ne correspond.</li>`;
+    ul.querySelectorAll('[data-i]').forEach(li => li.onclick = () => go(+li.dataset.i));
+  };
+  const close = () => { layer.innerHTML = ''; };
+  const go = i => { const x = cur[i]; close(); if(x) x.run(); };
+  inp.addEventListener('input', () => { idx = 0; draw(); });
+  inp.addEventListener('keydown', e => {
+    if(e.key==='ArrowDown'){ e.preventDefault(); idx = Math.min(idx+1, cur.length-1); draw(); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); idx = Math.max(idx-1, 0); draw(); }
+    else if(e.key==='Enter'){ e.preventDefault(); go(idx); }
+    else if(e.key==='Escape'){ close(); }
+  });
+  layer.querySelector('[data-close]').addEventListener('click', e => { if(e.target.hasAttribute('data-close')) close(); });
+  draw(); inp.focus();
+}
+
+/* ---------- Rendu global et clavier ---------- */
+function render(){
+  document.documentElement.classList.toggle('show-refs', $('#showRefs').checked);
+  $('#app').hidden = S.studentView;
+  $('#toStudent').textContent = S.studentView ? 'Revenir à la console' : 'Voir le poste 07 côté élève';
+  if(!S.studentView){ renderTop(); renderBanners(); renderMain(); renderBar(); }
+  renderStudent();
+}
+document.addEventListener('keydown', e => {
+  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); if(!S.studentView) openPalette(); return; }
+  if(e.key==='Escape'){
+    if($('#layer').innerHTML){ $('#layer').innerHTML=''; return; }
+    if(S.pop){ S.pop=null; render(); return; }
+    if(S.focus){ S.focus=null; render(); return; }
+    if(S.sel.size){ S.sel.clear(); render(); }
+    return;
+  }
+  if(typing || S.studentView || S.space!=='seance' || S.closed) return;
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='a'){ e.preventDefault(); S.sel = new Set(placed().filter(p => p.state==='in'||p.state==='lost').map(p => p.id)); render(); return; }
+  if(e.altKey){
+    const map = {p:'pause', m:'msg', f:'file', t:'tp', s:'poll'};
+    const a = map[e.key.toLowerCase()];
+    if(a){ e.preventDefault(); ACTIONS.find(x => x.id===a).run(); }
+  }
+});
+
+/* ---------- Barre de la maquette ---------- */
+$('#roleTech').onchange = e => { S.roles.tech = e.target.checked; render(); };
+$('#roleEtab').onchange = e => { S.roles.etab = e.target.checked; render(); };
+$('#showRefs').onchange = () => render();
+$('#toStudent').onclick = () => { S.studentView = !S.studentView; S.pop = null; render(); };
+$('#simHelp').onclick = () => {
+  const c = placed().filter(p => p.state==='in' && !S.helpQueue.includes(p.id));
+  if(!c.length) return; const p = c[Math.floor(Math.random()*c.length)];
+  S.helpQueue.push(p.id); render(); if(!S.studentView) toast(`Poste ${p.label} demande de l'aide`, `Rang ${S.helpQueue.length} dans la file`, null, 'AIDE-1');
+};
+$('#simAlert').onclick = () => {
+  S.alerts.push({poste:'12', level:'élevé', motif:'propos potentiellement violents', t:fmt(S.now), seen:false});
+  render();
+};
+$('#simLost').onclick = () => {
+  const p = P(9); p.state = p.state==='lost' ? 'in' : 'lost'; render();
+  if(!S.studentView) toast(p.state==='lost' ? 'Poste 09 : connexion perdue' : 'Poste 09 a rejoint la séance', p.state==='lost' ? 'Ses restrictions restent actives jusqu’à la fin de la séance ; les actions l’attendront.' : 'Il s’est resynchronisé sans action de votre part.', null, 'RESTR-2');
+};
+
+render();
+})();
+</script>
