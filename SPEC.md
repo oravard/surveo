@@ -13,7 +13,7 @@ code et les tests puissent y renvoyer.
 2. [Maîtrise de la classe](#2-maîtrise-de-la-classe) (écran, filtrage web, applications, mode examen)
 3. [Pédagogie](#3-pédagogie) (TP, rendus, distribution de fichiers, sondages)
 4. [Communication](#4-communication) (messages, chat, demande d'aide, diffusion d'écran)
-5. IA — à venir
+5. [IA](#5-ia) (classifieurs locaux, détection de harcèlement et de détresse, IA générative)
 6. [Rôles et confiance](#6-rôles-et-confiance) (rôles, confiance sans inscription, appairage, audit)
 7. [Déploiement et relais](#7-déploiement-et-relais) (installation, relais, découverte, reconfiguration, mises à jour)
 8. Données et RGPD (traçabilité, conservation, modules sensibles) — à venir
@@ -811,6 +811,183 @@ ne transite directement d'un poste élève à un autre.
   élèves voient l'écran de l'enseignant.
 - Réactions rapides de l'élève sans ouvrir la conversation (« compris »,
   « bloqué ») — utile, ou superflu ?
+
+---
+
+## 5. IA
+
+Surveo utilise l'IA de deux façons distinctes : des **classifieurs qui
+tournent sur le poste élève**, et une **IA générative atteinte par le
+relais**. Les deux sont facultatives : tout le reste de Surveo
+fonctionne sans IA.
+
+### 5.1 Vocabulaire
+
+| Terme | Sens |
+|---|---|
+| **Classifieur local** | Modèle exécuté sur le poste élève, qui produit une étiquette (par exemple « activité de jeu ») sans que les données brutes ne quittent le poste. |
+| **IA générative** | Service d'IA qui produit du texte (générer un TP, analyser un travail), atteint par le relais. |
+| **Fournisseur d'IA** | Destination de l'IA générative : un modèle local, ou un service distant choisi par l'enseignant. |
+| **Module sensible** | Traitement d'IA touchant à des données sensibles, soumis à un régime particulier (5.4). |
+| **Alerte** | Signal remonté à l'enseignant par un classifieur, sans donnée brute. |
+
+### 5.2 Principes
+
+> **Ce qu'un classifieur analyse ne quitte pas le poste. Seule une
+> étiquette ou une alerte remonte. Aucun contenu frappé au clavier n'est
+> transmis ni conservé.**
+
+- **IA-1** — Toutes les fonctions d'IA sont facultatives et peuvent être
+  désactivées. Surveo reste pleinement utilisable sans elles.
+- **IA-2** — Les classifieurs s'exécutent sur le poste élève. Les textes,
+  frappes et captures analysés restent sur le poste ; seule une étiquette
+  ou une alerte en sort (5.3, 5.4).
+- **IA-3** — L'IA générative passe par le relais de l'établissement ;
+  l'enseignant choisit le fournisseur (5.6). Un poste élève ne joint
+  jamais directement un service d'IA.
+- **IA-4** — Aucune analyse par l'IA n'a lieu pendant un examen (EXAM-2).
+- **IA-5** — Ce que fait l'IA est visible : une alerte dit sur quoi elle
+  porte, une suggestion est présentée comme telle, un contenu généré est
+  relu avant usage (MODELE-5, SONDAGE-7).
+
+### 5.3 Classifieurs locaux
+
+- **CLASS-1** — Surveo peut exécuter sur le poste des classifieurs
+  d'activité, qui alimentent les indicateurs de la console (AFF-2) :
+  par exemple activité de jeu, ou nature de l'application au premier
+  plan.
+- **CLASS-2** — Un classifieur ne fait remonter qu'une étiquette et, le
+  cas échéant, un degré de confiance. Les captures, titres de fenêtres,
+  frappes et statistiques qui ont servi à l'analyse ne sortent pas du
+  poste.
+- **CLASS-3** — Une étiquette est une aide à la décision, non une preuve.
+  La console la présente comme une indication, à charge pour
+  l'enseignant de regarder (par exemple en affichant l'écran, chapitre
+  1).
+- **CLASS-4** — Les classifieurs d'activité sont actifs par défaut
+  seulement s'ils ne touchent pas à des données sensibles ;
+  l'établissement peut les désactiver.
+
+### 5.4 Détection de harcèlement et de détresse
+
+- **SENS-1** — La détection de harcèlement et de détresse est un
+  **module sensible** : elle analyse le texte saisi par l'élève pour
+  repérer des situations préoccupantes.
+- **SENS-2** — Ce module est **désactivé par défaut**. Seul le rôle
+  établissement peut l'activer (chapitre 6), car l'établissement est
+  responsable de ce traitement.
+- **SENS-3** — L'analyse se fait **sur le poste** (IA-2). Le texte frappé
+  n'est ni transmis ni conservé. Seule une **alerte**, portant un niveau
+  et un motif général (« propos potentiellement violents »), remonte.
+- **SENS-4** — Quand il est activé, l'élève en est informé, au-delà de
+  l'indicateur de séance (REJ-4), dans les conditions fixées par
+  l'établissement (charte informatique).
+- **SENS-5** — L'établissement désigne qui reçoit les alertes : au moins
+  l'enseignant responsable de la séance, et éventuellement d'autres
+  personnels (vie scolaire, infirmerie). Par défaut, l'enseignant
+  responsable.
+- **SENS-6** — Une alerte invite à une attention humaine ; elle ne
+  déclenche aucune action automatique sur le poste.
+- **SENS-7** — L'activation du module, ses destinataires et toute
+  conservation éventuelle relèvent du chapitre « Données et RGPD » et
+  supposent une analyse d'impact (AIPD).
+
+### 5.5 IA générative
+
+- **GEN-1** — L'IA générative sert à : proposer un modèle de TP à partir
+  d'un cours ou d'une description (MODELE-5), proposer des sondages
+  (SONDAGE-7), et aider un élève sur une étape (action « aide de l'IA »,
+  MODELE-2).
+- **GEN-2** — Tout contenu proposé par l'IA est présenté à l'enseignant
+  ou à l'élève comme une suggestion, et peut être modifié ou écarté.
+  Rien n'est lancé ni affiché sans relecture (IA-5).
+- **GEN-3** — Ce qui est envoyé au fournisseur est réduit au nécessaire.
+  Quand une analyse porte sur l'écran ou le travail d'un élève,
+  l'enseignant est averti qu'une capture peut contenir des données
+  personnelles, et choisit en conséquence le fournisseur (5.6).
+- **GEN-4** — L'aide de l'IA à un élève (MODELE-2) affiche un conseil sur
+  son poste ; elle ne transmet pas à l'enseignant le contenu analysé,
+  mais peut lui signaler qu'une aide a été proposée.
+
+### 5.6 Fournisseur d'IA
+
+- **FOURN-1** — L'enseignant choisit le fournisseur d'IA générative à un
+  seul endroit, côté console ou relais. Les postes élèves n'en
+  connaissent aucun.
+- **FOURN-2** — Fournisseurs possibles : un modèle **local** (sur le
+  relais ou le poste de l'enseignant), un service **hébergé en France**,
+  ou un service tiers (par exemple Mistral, Google). L'établissement
+  peut restreindre la liste.
+- **FOURN-3** — Une seule clé d'accès éventuelle est détenue côté
+  enseignant ou établissement. Aucune clé de fournisseur n'est déployée
+  sur les postes élèves (correction d'un défaut de la version
+  précédente).
+- **FOURN-4** — En l'absence d'Internet, seul un fournisseur local est
+  utilisable ; les fonctions génératives sont sinon indisponibles, sans
+  empêcher le reste de fonctionner (IA-1).
+- **FOURN-5** — Pour les traitements touchant à des données d'élèves,
+  l'établissement peut imposer un fournisseur local ou hébergé en
+  France.
+
+### 5.7 Poste personnel
+
+- **IA-6** — Sur un poste personnel, le module de détection de
+  harcèlement et de détresse ne s'applique pas (cohérent avec
+  « observer et signaler seulement », chapitre 1). Les fonctions
+  génératives d'aide pédagogique restent disponibles comme au chapitre
+  3.
+
+### 5.8 Critères d'acceptation
+
+1. Surveo fonctionne entièrement avec toutes les fonctions d'IA
+   désactivées.
+2. Un classifieur d'activité signale un jeu dans la console sans
+   qu'aucune capture ni frappe ne quitte le poste.
+3. Le module de détection de harcèlement et de détresse est inactif tant
+   que le rôle établissement ne l'a pas activé.
+4. Une fois le module activé, une situation préoccupante produit une
+   alerte portant un niveau et un motif général, sans transmettre le
+   texte saisi ; l'alerte parvient aux destinataires désignés.
+5. Pendant un examen, aucune analyse par l'IA n'a lieu.
+6. Un TP proposé par l'IA s'ouvre en modification et n'est lancé
+   qu'après validation de l'enseignant.
+7. Aucune clé de fournisseur d'IA n'est présente sur un poste élève.
+8. Sans Internet, les fonctions génératives sont indisponibles si aucun
+   fournisseur local n'est configuré, mais le reste de Surveo marche.
+
+### 5.9 Décisions
+
+29 octobre 2026 : chapitre proposé, à valider.
+
+- Deux familles distinctes : classifieurs locaux sur le poste, IA
+  générative par le relais.
+- Changement majeur par rapport à la version précédente : les
+  classifieurs tournent sur le poste élève ; les données analysées (dont
+  les frappes) n'en sortent pas ; seule une étiquette ou une alerte
+  remonte. Aucun contenu frappé n'est transmis ni conservé.
+- Détection de harcèlement et de détresse traitée en module sensible :
+  désactivé par défaut, activé par l'établissement, analyse locale,
+  destinataires désignés, AIPD.
+- Fournisseur d'IA générative interchangeable, choisi côté enseignant ;
+  aucune clé déployée sur les postes élèves ; fournisseur local ou
+  hébergé en France imposable pour les données d'élèves.
+- Aucune analyse par l'IA pendant un examen.
+
+### 5.10 Questions ouvertes
+
+- Taille et format des classifieurs embarqués (par exemple modèles
+  convertis en ONNX, éventuellement distillés) : contrainte de poids
+  acceptable sur un poste élève ?
+- Un antivirus peut signaler un agent qui lit le clavier : à vérifier
+  tôt ; le fait que rien ne soit exfiltré doit faciliter l'acceptation.
+- Niveaux d'alerte de détresse : combien, et quel libellé pour éviter
+  les faux positifs anxiogènes ?
+- Les classifieurs publiés avec l'agent (open source) sont extractibles :
+  conséquence assumée, la valeur passant aux mises à jour des modèles et
+  au service (voir VISION.md).
+- Faut-il journaliser le fait qu'une alerte sensible a été émise (sans
+  son contenu), pour la traçabilité, ou ne rien garder du tout
+  (chapitre 8) ?
 
 ---
 
