@@ -283,29 +283,43 @@ crates communes. Noms indicatifs :
 
 ### Ordre de réalisation (phase 4)
 
-Développement par incréments **complets** (verticaux, utilisables),
-chacun du poste à la console :
+**Principe** : chaque incrément livre une **version opérationnelle et
+autonome** — agent + console + relais — ne contenant que les
+fonctionnalités déjà développées, mais installable et testable telle
+quelle, y compris sur un **réseau local sans aucun serveur** grâce au
+relais embarqué dans la console (RELAIS-1). C'est ainsi qu'on valide
+chaque étape dans de vrais environnements (les salles en réseau local de
+l'utilisateur, où il est administrateur). Chaque incrément est vertical
+(du poste à la console) et s'achève par un build des trois composants.
+Les premiers builds peuvent être non signés — testables parce que
+l'utilisateur est administrateur de ses postes ; la signature est
+formalisée à l'étape 8 (INST-7).
 
-1. **Socle** : workspace, `surveo-protocol`, `surveo-identity` tirés des
-   prototypes `relais`/`tauri` ; `relay_core` promu hors des prototypes.
-2. **Séance minimale** : l'agent se connecte et se place ; la console
-   montre le plan et les miniatures ; ouvrir, prolonger, clôturer ;
-   retour à l'état d'origine (chap. 1). Première tranche de bout en bout.
-3. **Maîtrise** : écran en pause, filtrage web, fermeture d'application,
+1. **Séance minimale (et socle)** : mettre en place le workspace et les
+   crates communes (`surveo-protocol`, `surveo-identity`, `relay_core`
+   promu hors des prototypes `relais`/`tauri`), puis livrer la première
+   tranche utilisable : l'agent se connecte et se place, la console (avec
+   relais embarqué) montre le plan et les miniatures, on ouvre, prolonge
+   et clôture une séance, et le poste revient à son état d'origine
+   (chap. 1). **Premier trio autonome testable en salle.**
+2. **Maîtrise** : écran en pause, filtrage web, fermeture d'application,
    mode examen, via `surveo-platform` (chap. 2).
-4. **Pédagogie** : modèles de TP, lancement et suivi, rendus,
+3. **Pédagogie** : modèles de TP, lancement et suivi, rendus,
    distribution, sondages (chap. 3).
-5. **Communication** : messages, conversation, demande d'aide, diffusion
+4. **Communication** : messages, conversation, demande d'aide, diffusion
    d'écran (chap. 4).
-6. **Rôles et confiance** : appairage, rôles, révocation, journal
+5. **Rôles et confiance** : appairage, rôles, révocation, journal
    d'audit ; configuration poussée signée ; mises à jour signées
    (chap. 6, 7).
-7. **IA** : classifieurs locaux, IA générative via le relais (chap. 5).
-8. **Données et RGPD** : conservation, traçabilité en option, kit RGPD
+6. **IA** : classifieurs locaux, IA générative via le relais (chap. 5).
+7. **Données et RGPD** : conservation, traçabilité en option, kit RGPD
    (chap. 8).
-9. **Durcissement et diffusion** : signature du code et soumission aux
-   éditeurs d'antivirus (INST-7, 7.3), paquets d'installation, deux modes
-   de déploiement.
+8. **Durcissement et diffusion** : signature du code et soumission aux
+   éditeurs d'antivirus (INST-7, 7.3), paquets d'installation, relais
+   d'établissement et hébergé, deux modes de déploiement.
+
+À chaque incrément à partir du premier, le résultat est un jeu
+agent/console/relais déployable sur une salle pour l'éprouver.
 
 ### Décisions
 
@@ -326,6 +340,10 @@ s'éclaircira en avançant).
 - Types Rust ↔ TypeScript engendrés depuis Rust.
 - Développement phase 4 par tranches verticales, à partir d'une séance
   minimale.
+- Chaque incrément de la phase 4 est une **version opérationnelle
+  autonome** (agent + console + relais embarqué), testable en salle sur
+  réseau local sans serveur, ne contenant que les fonctionnalités déjà
+  faites (demande de l'utilisateur, 30 octobre 2026).
 
 ### Questions ouvertes
 
