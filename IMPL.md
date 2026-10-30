@@ -171,6 +171,42 @@ l'agent est **autonome** pendant une coupure.
   éventuelle côté établissement/relais. Suppression automatique à
   l'échéance (CONSERV-3).
 
+### Dimensionnement
+
+Chiffres tirés des prototypes `relais` (7.1) et `capture` (1.1). Tout le
+trafic vient des **miniatures** ; présence, commandes et acquittements
+sont négligeables. Rappel : l'image d'écran est **désactivée par défaut**
+(AFF-4), elle ne circule que quand l'enseignant affiche les écrans.
+
+Miniatures réelles mesurées : 1,5 à 8 Ko (≈ 8 Ko au pire, GNOME). Pour
+une classe de 30 postes à 1 image/s, écrans affichés :
+
+| Flux | Débit |
+|---|---|
+| Montée d'un agent vers le relais | ~8 Ko/s ≈ 64 kbit/s |
+| 30 agents → relais | ~240 Ko/s ≈ 1,9 Mbit/s |
+| Relais → une console | ~240 Ko/s ≈ 1,9 Mbit/s |
+| Total vu par le relais (1 classe, 1 console) | ~0,5 Mo/s ≈ 3,8 Mbit/s |
+| Plan de salle sans écrans (défaut) | quasi nul |
+
+Chaque console supplémentaire sur la séance (MULTI-1) ajoute autant en
+sortie du relais.
+
+**Le relais est léger en CPU et en mémoire** : le prototype a tenu 300
+agents (≈ 10 classes) à 1 image/s avec des miniatures factices de 14 à
+26 Ko, pour 6,2 Mo/s, **2 % d'un seul cœur** et **57 Mo** de RAM, sans
+acquittement manquant. Avec les miniatures réelles (~8 Ko), ~2,4 Mo/s
+pour 300 agents. Le facteur d'échelle d'un **relais hébergé** n'est donc
+pas le CPU mais la **bande passante** : ~10 classes écrans affichés
+≈ ~40 Mbit/s agrégés, qu'un serveur absorbe aisément et qu'on peut
+répartir par établissement (RELAIS-3, VISION.md §6).
+
+**À mesurer avant de conclure** : la **diffusion d'écran** (DIFF-1, une
+source ré-émise vers 30 postes) et le **mode focus** (AFF-3, image plus
+grande et plus rapide à la demande) sont les opérations les plus lourdes
+et ne sont pas encore mesurées. Les chiffres ci-dessus ont été pris sur
+une seule machine, sans latence ni pertes de réseau réelles (7.1).
+
 ### Identité et confiance
 
 - **Identité en couches** (chap. 1, VISION.md §8) : poste (socle,
