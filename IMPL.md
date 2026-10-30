@@ -12,8 +12,8 @@ par les identifiants de règles.
 |---|---|---|
 | 0. Spécification | SPEC.md | Fait |
 | 1. Maquette | `maquette/console-surveo.html`, validée (SPEC.md, 9.10) | Fait |
-| 2. Prototypes techniques | Lever les risques techniques un par un (ci-dessous) | En cours |
-| 3. Architecture | Composants, protocole, organisation du code, à partir des résultats de la phase 2 | À faire |
+| 2. Prototypes techniques | Lever les risques techniques un par un (ci-dessous) | Fait |
+| 3. Architecture | Composants, protocole, organisation du code, à partir des résultats de la phase 2 | Proposée, à valider ([Architecture](#architecture)) |
 | 4. Développement | Par incréments complets, en commençant par une séance minimale | À faire |
 
 ### Phase 2 — prototypes techniques
@@ -52,6 +52,255 @@ d'administration.
   `pipewire-devel`, `clang` (liaisons PipeWire), `webkit2gtk4.1-devel`,
   `gtk3-devel`, `openssl-devel`, `librsvg2-devel`,
   `libappindicator-gtk3-devel`, puis `cargo install tauri-cli`.
+
+## Architecture
+
+Ce chapitre fixe l'architecture globale à partir des résultats de la
+phase 2 : les composants, le protocole qui les relie, où vit l'état, et
+l'organisation du code. C'est une **proposition datée (30 octobre 2026),
+à valider**, qui sert de base à la phase 4 (développement). Les règles de
+comportement sont dans SPEC.md, auquel ce chapitre renvoie par leurs
+identifiants ; les choix techniques validés le sont par les prototypes de
+la phase 2 (chapitres 1 à 7 de ce document).
+
+### Vue d'ensemble
+
+Trois programmes et des bibliothèques partagées, tous en Rust ; toutes
+les interfaces en TypeScript (VISION.md §8).
+
+```
+   poste élève            poste élève              poste enseignant
+  ┌───────────┐          ┌───────────┐            ┌──────────────────┐
+  │  agent    │          │  agent    │            │  console (Tauri) │
+  │ + panneau │   …      │ + panneau │            │  + relais (opt.) │
+  └─────┬─────┘          └─────┬─────┘            └─────────┬────────┘
+        │ sortie TLS           │ sortie TLS                 │ sortie TLS
+        └──────────────┬───────┴────────────────────────────┘
+                       ▼
+                 ┌───────────┐   un relais par établissement, à l'un de
+                 │  relais   │   trois emplacements : dans la console,
+                 └───────────┘   sur un serveur du lycée, ou hébergé (FR)
+```
+
+- **Agent** (poste élève) : programme Rust, sans fenêtre, plus un
+  **panneau élève** en vue web (AGENT-3, prototype `tauri`). Se connecte
+  **en sortie** au relais (RELAIS-4), n'écoute jamais le réseau (7.2,
+  enseignement 4). Il capture l'écran (prototype `capture`), applique les
+  restrictions (prototype `sans-admin`), exécute les classifieurs locaux
+  (prototype `classifieur`), et affiche à l'élève le TP, les messages, les
+  sondages et la demande d'aide.
+- **Console** (enseignant) : application **Tauri 2** (cœur Rust, interface
+  TypeScript, prototype `tauri`). Elle peut **embarquer le relais**
+  (RELAIS-1, relais dans la classe) via `relay_core`. Elle porte le plan
+  de salle, les miniatures, et conduit la séance.
+- **Relais** : le **même** programme Rust aux trois emplacements
+  (RELAIS-1, RELAIS-2). Il route entre membres d'un même établissement
+  (CONF-4), n'accepte que des connexions en sortie, authentifie par la
+  clé d'établissement (6.1), garde seulement la dernière miniature de
+  chaque poste et borne ses files (7.1, « à reprendre »).
+- **Bibliothèques partagées** : voir « Organisation du code ».
+
+### Protocole
+
+- **Transport** : WebSocket sur TLS (`tokio` + `tokio-tungstenite` +
+  `rustls`/*ring*), éprouvé par le prototype `relais` (7.1). Le certificat
+  TLS du relais peut rester auto-signé : la confiance vient de la clé
+  d'établissement, pas d'une autorité (6.1).
+- **Authentification** : échange mutuel par certificats de membre signés
+  par la clé d'établissement Ed25519, lié à une valeur exportée de la
+  session TLS (6.1). Un membre d'un autre établissement est refusé et
+  journalisé (CONF-3).
+- **Deux types de trames** :
+  - **messages de contrôle** typés, sérialisés par `serde` (JSON au
+    prototype ; choix du format compact à trancher, voir questions
+    ouvertes), avec un **champ de version** du protocole ;
+  - **trames binaires** pour le volumineux (miniatures, diffusion
+    d'écran, transfert de fichiers), préfixées par l'identifiant du poste
+    (7.1). Pour les miniatures, le relais ne conserve que la plus récente
+    par poste.
+- **Adressage** : une commande vise la séance entière, une sélection de
+  postes, ou un seul poste (prototype `tauri`). Les retours (aide, rendus,
+  réponses aux sondages, « traité ») remontent des agents vers les
+  consoles.
+- **Acquittements** : les commandes de restriction sont acquittées poste
+  par poste (RETOUR-1, mesuré au prototype `relais`). Les miniatures sont
+  au mieux (dernière connue). Les rendus sont fiables, avec reprise
+  (RENDU-3).
+- **Report pendant une déconnexion** : un message, un TP ou un fichier
+  destiné à un poste momentanément absent lui parvient à son retour, tant
+  que la séance est ouverte (MSG-5, TP-2, DISTRIB-4). Voir « État et
+  stockage » pour savoir qui garde ces éléments en attente.
+- **Familles de messages** (dérivées de SPEC) : présence et état des
+  postes (SALLE-1, MODE-2) ; miniatures (chap. 1, AFF) ; restrictions
+  (chap. 2 : pause, filtrage, fermeture d'application, mode examen) ;
+  pédagogie (chap. 3 : TP, étapes, rendus, distribution, sondages) ;
+  communication (chap. 4 : messages, conversation, aide, diffusion) ;
+  configuration poussée signée (chap. 7, RECONF-1) ; appairage (6.5) ;
+  mises à jour signées (7.6) ; entrées du journal d'audit (6.7).
+- **Chiffrement de bout en bout** : objectif, non tenu en v1 (6.10,
+  HEBERG-3). En v1, le relais voit ce qu'il route ; la confidentialité
+  repose sur TLS de bout à bout de chaque lien et sur la confiance
+  d'établissement.
+
+### État et stockage
+
+Principe directeur, issu du chapitre 8 : **le relais voit et garde le
+moins possible** ; l'état durable est du côté console/établissement ;
+l'agent est **autonome** pendant une coupure.
+
+- **Agent** (poste) : garde localement de quoi tenir une déconnexion —
+  son identité (certificat de membre + clés), son rattachement, le dernier
+  relais et la dernière configuration reçus, le **journal de remise en
+  état** (valeurs d'origine à restaurer, prototype `sans-admin`), le jeton
+  de restauration de la capture, et l'état de son TP en cours (étapes
+  terminées, rendus envoyés, rendus en attente d'envoi). Cela satisfait
+  RESTR-2, RESTR-3, TP-3 et RENDU-3 sans que le relais ait à mémoriser
+  l'état du poste. Rangé dans le dossier utilisateur
+  (`~/.config/surveo`, `%LOCALAPPDATA%\Surveo`).
+- **Console responsable** (celle qui a ouvert la séance, MULTI-2) : tient
+  l'état **autoritatif de la séance** — postes joints, noms de la séance,
+  restrictions et TP appliqués, ordre de la file d'aide (AIDE-2), rendus
+  reçus. Un poste qui se reconnecte se resynchronise depuis elle, via le
+  relais.
+- **Relais** : route et ne bufferise qu'au minimum (dernière miniature par
+  poste ; au besoin une courte file bornée de messages de séance pour un
+  poste brièvement absent). Il ne persiste pas le contenu.
+- **Données durables** (chap. 8, DATA-1) : rendus de TP rangés côté
+  enseignant par séance → TP → poste (RENDU-6) ; configuration (salles,
+  plans, listes, rattachements), journal d'audit et traçabilité
+  éventuelle côté établissement/relais. Suppression automatique à
+  l'échéance (CONSERV-3).
+
+### Identité et confiance
+
+- **Identité en couches** (chap. 1, VISION.md §8) : poste (socle,
+  toujours présent) → place dans la salle (plan) → séance → élève
+  (facultatif, par séance).
+- **Clé d'établissement** Ed25519 créée localement (CONF-1) ; chaque
+  relais, console et agent a sa paire de clés et un **certificat de
+  membre** {établissement, membre, rôle, clé publique} signé par
+  l'établissement (6.1).
+- **Appairage** d'une console par code court et temporaire, via le relais,
+  hors ligne (PAIR-1 à PAIR-4). **Retrait** d'une console (PAIR-5) :
+  l'établissement publie une liste de révocation signée, poussée dans la
+  configuration ; un poste n'obéit plus à une console révoquée (CONF-3).
+- **Rôles** (enseignant, technicien, établissement) portés par le
+  certificat de membre ; la console n'expose que ses rôles (ROLE-3), le
+  poste ne vérifie l'autorisation qu'à l'action (CONF-3).
+- **Configuration et mises à jour signées** (RECONF-1, MAJ-2) : un relais,
+  même compromis, ne peut pas pousser de code ni de configuration non
+  signés.
+
+### Capacités par plateforme
+
+Un module d'abstraction par système, derrière des traits Rust, avec une
+implémentation par OS (éprouvées par les prototypes `capture` et
+`sans-admin`) :
+
+- **Capture** : Wayland (portail ScreenCast + PipeWire, jeton de
+  restauration ; cadence à la demande sous GNOME/KDE, flux suspendu sous
+  COSMIC — 1.1), X11 (`GetImage`), Windows (`xcap`, puis API de
+  duplication du bureau à étudier). Un seul écran en v1.
+- **Restrictions** : filtrage par proxy de l'utilisateur (WinINet sous
+  Windows, `gsettings` sous Linux ; mode PAC sans droits d'administration,
+  2.1), démarrage de session (clé `Run` / `~/.config/autostart`), écran en
+  pause (fenêtre de recouvrement), fermeture d'application. Chaque action
+  relève la valeur d'origine et la restaure (RESTR-4).
+- **Modes de déploiement** (MODE-1 à MODE-6) : la même base, mais sans
+  droits d'administration le filtrage cesse avec l'agent (PAC) et ne porte
+  que sur les navigateurs ; la console affiche le mode de chaque poste.
+
+### IA sur le poste
+
+Éprouvé par le prototype `classifieur` (5.1) :
+
+- **Classifieurs locaux** exécutés sur le poste par ONNX Runtime depuis
+  Rust (IA-2, SENS-3) ; le modèle n'est pas livré avec l'agent, il est
+  téléchargé depuis le relais à l'activation du module et chargé
+  seulement tant qu'il est actif (SENS-2). Rien n'est exfiltré.
+- **IA générative** : les requêtes passent par le relais de l'enseignant,
+  qui choisit la destination (local, Mistral, Google… — SPEC 5.6).
+
+### Organisation du code
+
+Un espace de travail Cargo (workspace) ; les binaires réutilisent des
+crates communes. Noms indicatifs :
+
+| Crate | Rôle |
+|---|---|
+| `surveo-protocol` | Définition et sérialisation des messages, version du protocole. Partagée par tous. |
+| `surveo-identity` | Clé d'établissement, certificats de membre, défi mutuel, liaison TLS (6.1). |
+| `relay_core` | Moteur de routage du relais (existe, prototype `tauri`). |
+| `surveo-platform` | Capacités par OS (capture, proxy, démarrage, pause, applications) derrière des traits. |
+| `surveo-agent` | Agent du poste élève ; utilise `platform`, `protocol`, `identity`, les classifieurs. |
+| `surveo-relay` | Binaire relais autonome (utilise `relay_core`). |
+| `surveo-console` | Cœur Rust de la console Tauri ; embarque `relay_core` en option. |
+
+- **Interfaces TypeScript** : console (plan de salle, modes, conduite de
+  séance) et panneau élève. La maquette validée
+  (`maquette/console-surveo.html`) sert de référence. Le cadre TS (Svelte,
+  React…) reste à choisir (questions ouvertes).
+- **Types partagés Rust ↔ TypeScript** : les messages du protocole et les
+  objets d'IPC Tauri doivent exister des deux côtés ; on les **engendre**
+  depuis Rust (par exemple `ts-rs` ou `typeshare`) pour qu'ils restent
+  synchronisés (question ouverte : lequel).
+
+### Ordre de réalisation (phase 4)
+
+Développement par incréments **complets** (verticaux, utilisables),
+chacun du poste à la console :
+
+1. **Socle** : workspace, `surveo-protocol`, `surveo-identity` tirés des
+   prototypes `relais`/`tauri` ; `relay_core` promu hors des prototypes.
+2. **Séance minimale** : l'agent se connecte et se place ; la console
+   montre le plan et les miniatures ; ouvrir, prolonger, clôturer ;
+   retour à l'état d'origine (chap. 1). Première tranche de bout en bout.
+3. **Maîtrise** : écran en pause, filtrage web, fermeture d'application,
+   mode examen, via `surveo-platform` (chap. 2).
+4. **Pédagogie** : modèles de TP, lancement et suivi, rendus,
+   distribution, sondages (chap. 3).
+5. **Communication** : messages, conversation, demande d'aide, diffusion
+   d'écran (chap. 4).
+6. **Rôles et confiance** : appairage, rôles, révocation, journal
+   d'audit ; configuration poussée signée ; mises à jour signées
+   (chap. 6, 7).
+7. **IA** : classifieurs locaux, IA générative via le relais (chap. 5).
+8. **Données et RGPD** : conservation, traçabilité en option, kit RGPD
+   (chap. 8).
+9. **Durcissement et diffusion** : signature du code et soumission aux
+   éditeurs d'antivirus (INST-7, 7.3), paquets d'installation, deux modes
+   de déploiement.
+
+### Décisions
+
+30 octobre 2026 : architecture proposée, à valider.
+
+- Trois programmes Rust (agent, console Tauri, relais), interfaces en
+  TypeScript ; le relais est le même binaire aux trois emplacements.
+- Transport WebSocket/TLS, authentification par la clé d'établissement
+  (6.1), confirmés par les prototypes `relais` et `tauri`.
+- Contrôle en messages typés `serde` versionnés ; volumineux en trames
+  binaires préfixées par le poste.
+- **Relais mince** : l'état durable est côté console/établissement,
+  l'agent est autonome pendant une coupure ; le relais route et garde le
+  minimum. Cohérent avec l'objectif de chiffrement de bout en bout (6.10).
+- Capacités système derrière un trait par OS (`surveo-platform`).
+- Types Rust ↔ TypeScript engendrés depuis Rust.
+- Développement phase 4 par tranches verticales, à partir d'une séance
+  minimale.
+
+### Questions ouvertes
+
+- Format des messages de contrôle : garder JSON (lisible, souple) ou
+  passer à un format compact (CBOR/MessagePack via `serde`) ?
+- Cadre TypeScript des interfaces (Svelte, React, autre) et outil de
+  génération des types depuis Rust (`ts-rs` vs `typeshare`).
+- Report pendant une déconnexion : la courte file de messages de séance
+  est-elle tenue par le relais ou seulement par la console responsable ?
+- Chiffrement de bout en bout consoles ↔ postes : quelle portée en v1,
+  et que doit encore voir le relais pour router (6.10, 8.12) ?
+- Ce qui arrive à la séance si la console responsable se ferme en cours
+  (reprise par une autre console autorisée ?).
 
 ## 1. Séance et salle
 
