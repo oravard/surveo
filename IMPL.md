@@ -28,7 +28,7 @@ SPEC.md concerné. Un prototype qui échoue remet en cause un choix
 | Ordre | Prototype | Question | Critère de réussite | SPEC.md | État |
 |---|---|---|---|---|---|
 | 1 | `relais` | Un relais en Rust tient-il une salle de 30 agents connectés en sortie, avec des miniatures et des commandes, en chiffrant et en authentifiant par la clé d'établissement ? | 30 agents simulés sur un portable ; une commande arrive en moins de 200 ms ; miniatures à 1 image/s soutenues ; découverte du relais par annonce sur le réseau local | Chap. 6, 7 | Fait ([7.1](#71-prototype-relais)) |
-| 2 | `capture` | Peut-on capturer l'écran sans droits d'administration sous Windows, X11 et Wayland (GNOME, KDE, COSMIC), et à quel prix ? | Miniature à 1 image/s pour moins de 5 % d'un cœur ; sous Wayland, consentement demandé une seule fois puis mémorisé | Chap. 1 (AFF), 4 (DIFF) | En partie ([1.1](#11-prototype-capture)) : GNOME et KDE à vérifier |
+| 2 | `capture` | Peut-on capturer l'écran sans droits d'administration sous Windows, X11 et Wayland (GNOME, KDE, COSMIC), et à quel prix ? | Miniature à 1 image/s pour moins de 5 % d'un cœur ; sous Wayland, consentement demandé une seule fois puis mémorisé | Chap. 1 (AFF), 4 (DIFF) | En partie ([1.1](#11-prototype-capture)) : COSMIC et GNOME vérifiés ; KDE à vérifier |
 | 3 | `sans-admin` | Peut-on installer l'agent, le démarrer à l'ouverture de session, appliquer un proxy utilisateur et rétablir exactement le réglage d'origine, sans droits d'administration ? | Aucune élévation demandée ; réglage d'origine rétabli à l'identique ; liste des navigateurs qui respectent le proxy | Chap. 1 (RESTR-4), 2 (WEB, MODE), 7 (INST) | Fait ([2.1](#21-prototype-sans-admin)) |
 | 4 | `tauri` | La console Tauri peut-elle embarquer le relais et afficher le plan alimenté par le prototype 1 ? Le panneau élève peut-il s'afficher dans une vue web côté agent ? | Console fonctionnelle sous Windows et Linux ; WebView2 disponible sans droits d'administration sur les postes Windows visés | Chap. 7 (RELAIS-1), 9 | Fait ([7.2](#72-prototype-tauri)) : pare-feu à confirmer avec un compte standard |
 | 5 | `classifieur` | Le classifieur CamemBERT, converti en ONNX et quantifié, tourne-t-il sur un poste élève modeste depuis Rust ? | Moins de 150 Mo sur disque, moins de 300 Mo de mémoire, moins de 100 ms par phrase ; sinon, plan B avec un modèle distillé | Chap. 5 (IA-2, SENS-3) | Fait ([5.1](#51-prototype-classifieur)) |
@@ -79,13 +79,17 @@ Windows 10 ou 11.
 | Plateforme | Écran | Par miniature (médiane) | Taille | CPU de l'agent | Coût ajouté au compositeur |
 |---|---|---|---|---|---|
 | Wayland, COSMIC 1.9 (Fedora 44) | 5120×1440 | réduction 4,4 ms, JPEG 0,2 ms | 4,4 Ko | 0,55 % d'un cœur | environ 1 % d'un cœur |
+| Wayland, GNOME 50 (Fedora 44, VM) | 1932×1047 | réduction 1,3 ms, JPEG 0,3 ms | 8,2 Ko | 0,2 % d'un cœur | environ 2 % d'un cœur |
 | X11 (serveur virtuel Xvfb) | 1920×1080 | lecture 5,2 ms, réduction 1,1 ms | 1,5 Ko | 0,72 % d'un cœur | sans objet |
 | Windows (compte administrateur, confirmé avec un compte standard) | 2300×1200 | lecture 37,8 ms, réduction 1,5 ms | 5,2 Ko | 1,77 % d'un cœur | non mesuré |
 
 **Consentement sous Wayland** : au premier lancement, le portail COSMIC
 affiche sa fenêtre d'accord ; il délivre alors un jeton de restauration.
 Aux lancements suivants, l'accord est obtenu en 3 à 4 ms, sans fenêtre.
-Le critère « accord demandé une seule fois » est atteint sous COSMIC.
+Sous GNOME 50 (portail version 5, VM Fedora 44), même résultat : l'accord
+est demandé une fois, puis le jeton de restauration est réutilisé sans
+fenêtre (28 ms au deuxième lancement). Le critère « accord demandé une
+seule fois » est atteint sous COSMIC et GNOME ; KDE reste à faire.
 
 **Le coût réel est chez le compositeur.** COSMIC n'accepte qu'une
 cadence fixe de 60 images/s : une demande de 1 image/s au plus fait
@@ -98,15 +102,24 @@ plus alors que 1,0 image/s, pour environ 1 % d'un cœur. La première
 image livrée après le réveil est toujours prise : sinon le flux reste
 ouvert de plus en plus longtemps à chaque cycle.
 
-**Résultat** : critère atteint sous Wayland (COSMIC), X11 et Windows ;
-la capture d'une miniature par seconde coûte moins de 2 % d'un cœur,
-compositeur compris. Les miniatures réelles pèsent 1,5 à 5 Ko, bien
+**GNOME, lui, négocie une cadence à la demande** (format `0/1 image/s`) :
+le compositeur n'envoie que les images demandées, et la suspension du
+flux n'est donc pas nécessaire (elle reste sans effet néfaste). Le coût
+du compositeur `gnome-shell` est d'environ 2 % d'un cœur pour 1 image/s
+(1,2 % à vide), et l'agent reste à 0,2 %.
+
+**Résultat** : critère atteint sous Wayland (COSMIC et GNOME), X11 et
+Windows ; la capture d'une miniature par seconde coûte au plus environ
+2,5 % d'un cœur, compositeur compris. Les miniatures réelles pèsent 1,5 à 5 Ko, bien
 moins que les 14 à 26 Ko supposés par le prototype `relais` (7.1).
 
 **Limites de la mesure**
 
-- Jeton de restauration vérifié sous COSMIC seulement ; GNOME et KDE
-  restent à vérifier en machine virtuelle.
+- Jeton de restauration vérifié sous COSMIC et GNOME ; KDE reste à
+  vérifier en machine virtuelle.
+- Mesure GNOME faite en VM, sur un écran de 1932×1047 (plus petit que
+  l'écran COSMIC réel de 5120×1440) : la réduction y est logiquement plus
+  rapide. À confirmer sur un écran GNOME de pleine taille.
 - Sous XWayland, l'écran racine n'est pas lisible (erreur `BadMatch`) :
   attendu, puisque les fenêtres Wayland n'y figurent pas. Le chemin X11
   a été mesuré sur un serveur virtuel, sans carte graphique ; un vrai
