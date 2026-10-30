@@ -620,6 +620,17 @@ probablement pas : seul le vrai certificat, plus la soumission du faux
 positif à Avast, est attendu efficace. La signature de test reste utile
 pour mesurer l'effet « signature valide » sur Defender et SmartScreen.
 
+**Passe « signé test »** (même poste, 30 octobre 2026 ; certificat
+auto-signé approuvé localement, signature `Valid` horodatée) : **aucun
+effet favorable**. SmartScreen affiche toujours « Éditeur inconnu ».
+Avast retient les trois binaires signés dans CyberCapture dès le
+lancement puis refuse l'exécution, alors que le `capture.exe` non signé
+déjà connu passe : la signature change le hash, et Avast juge sur la
+réputation du hash, pas sur la signature. `sans-admin.exe` n'atteint
+donc pas la pose du proxy : la persistance d'`IDP.Generic` reste à
+mesurer. Defender, en mode passif derrière Avast sur ce poste, n'a pas
+pu être mesuré.
+
 **Voie de reconnaissance visée** (à confirmer par les mesures signées) :
 
 1. **Signer en Authenticode**, avec horodatage, tous les exécutables
@@ -638,8 +649,9 @@ pour mesurer l'effet « signature valide » sur Defender et SmartScreen.
    5.10) — argument d'acceptation.
 
 **Limites de ce qui est fait.** Les constats actuels portent sur un seul
-poste Windows et deux antivirus (Avast, Defender), tous sur binaire non
-signé. Rien n'est encore mesuré signé, ni sur un antivirus d'entreprise,
-ni sur un vrai poste de salle. La décision de spécification (binaires
+poste Windows et deux antivirus (Avast actif, Defender passif), en non
+signé et en signé de test. Rien n'est encore mesuré avec le vrai
+certificat, ni avec Defender actif, ni sur un antivirus d'entreprise, ni
+sur un vrai poste de salle. La décision de spécification (binaires
 signés, reconnaissance par signature et documentation plutôt que
 contournement) sera proposée dans SPEC.md une fois ces mesures faites.
