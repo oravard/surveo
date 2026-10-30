@@ -32,7 +32,7 @@ SPEC.md concerné. Un prototype qui échoue remet en cause un choix
 | 3 | `sans-admin` | Peut-on installer l'agent, le démarrer à l'ouverture de session, appliquer un proxy utilisateur et rétablir exactement le réglage d'origine, sans droits d'administration ? | Aucune élévation demandée ; réglage d'origine rétabli à l'identique ; liste des navigateurs qui respectent le proxy | Chap. 1 (RESTR-4), 2 (WEB, MODE), 7 (INST) | Fait ([2.1](#21-prototype-sans-admin)) |
 | 4 | `tauri` | La console Tauri peut-elle embarquer le relais et afficher le plan alimenté par le prototype 1 ? Le panneau élève peut-il s'afficher dans une vue web côté agent ? | Console fonctionnelle sous Windows et Linux ; WebView2 disponible sans droits d'administration sur les postes Windows visés | Chap. 7 (RELAIS-1), 9 | Fait ([7.2](#72-prototype-tauri)) : pare-feu à confirmer avec un compte standard |
 | 5 | `classifieur` | Le classifieur CamemBERT, converti en ONNX et quantifié, tourne-t-il sur un poste élève modeste depuis Rust ? | Moins de 150 Mo sur disque, moins de 300 Mo de mémoire, moins de 100 ms par phrase ; sinon, plan B avec un modèle distillé | Chap. 5 (IA-2, SENS-3) | Fait ([5.1](#51-prototype-classifieur)) |
-| 6 | `antivirus` | Comment Microsoft Defender et les antivirus courants des établissements réagissent-ils à l'agent, signé ou non ? | Aucun blocage d'un binaire signé ; sinon, liste des comportements en cause et des ajustements | Chap. 5, 7 | En cours ([7.3](#73-prototype-antivirus)) : protocole posé, mesures signées à faire |
+| 6 | `antivirus` | Comment Microsoft Defender et les antivirus courants des établissements réagissent-ils à l'agent, signé ou non ? | Aucun blocage d'un binaire signé ; sinon, liste des comportements en cause et des ajustements | Chap. 5, 7 | En cours ([7.3](#73-prototype-antivirus)) : Defender et Avast mesurés (non signé, signé test) ; reste la vérification au vrai certificat |
 
 Le prototype 1 vient en premier : il ne dépend d'aucune bibliothèque
 système et sert de base aux prototypes 2 et 4. Les prototypes 3 et 6
@@ -633,6 +633,20 @@ donc pas la pose du proxy : la persistance d'`IDP.Generic` reste à
 mesurer. Defender, en mode passif derrière Avast sur ce poste, n'a pas
 pu être mesuré.
 
+**Passe « Defender actif »** (VM Windows 11 propre, sans antivirus tiers,
+Defender actif, 30 octobre 2026 ; binaires non signés) : **aucun blocage
+comportemental**. La capture d'écran, la pose du proxy (fixe **comme**
+PAC) et l'inscription au démarrage ne déclenchent rien ;
+`Get-MpThreatDetection` et `Get-MpThreat` sont vides. Le seul frein est
+SmartScreen au premier lancement (« éditeur non reconnu »). Autrement
+dit, le blocage dur sur la pose du proxy est **propre à Avast** ;
+Defender, l'antivirus le plus répandu dans les établissements sans
+produit tiers, laisse faire. Pour lui, la **signature et la réputation
+suffisent**, il n'y a pas de comportement à corriger. (`classifieur.exe`
+n'a pas pu s'exécuter, `onnxruntime.dll` absent du kit de transfert ; le
+binaire a été chargé sans blocage mais sa lecture de texte n'a pas
+tourné — à revérifier avec le bundle complet.)
+
 **Voie de reconnaissance visée** (à confirmer par les mesures signées) :
 
 1. **Signer en Authenticode**, avec horodatage, tous les exécutables
@@ -650,10 +664,17 @@ pu être mesuré.
    n'est exfiltré et que le modèle n'est pas livré par défaut (SPEC.md
    5.10) — argument d'acceptation.
 
-**Limites de ce qui est fait.** Les constats actuels portent sur un seul
-poste Windows et deux antivirus (Avast actif, Defender passif), en non
-signé et en signé de test. Rien n'est encore mesuré avec le vrai
-certificat, ni avec Defender actif, ni sur un antivirus d'entreprise, ni
-sur un vrai poste de salle. La décision de spécification (binaires
-signés, reconnaissance par signature et documentation plutôt que
-contournement) sera proposée dans SPEC.md une fois ces mesures faites.
+**Ce qui reste à faire.** Defender actif et Avast ont été mesurés, en non
+signé et en signé de test. La dernière inconnue est le **vrai
+certificat** (autorité reconnue) : lève-t-il, avec le temps et le volume,
+l'avertissement SmartScreen, et évite-t-il le blocage CyberCapture et
+`IDP.Generic` d'Avast, après soumission du faux positif ? Restent aussi
+non couverts un antivirus d'entreprise et un vrai poste de salle. Le
+`classifieur.exe` est à retester avec son `onnxruntime.dll`. Comme
+l'essentiel est acquis — Defender ne bloque aucun comportement, Avast ne
+bloque que sur réputation de hash —, la décision de spécification
+(binaires signés ; reconnaissance par signature, réputation,
+documentation et exclusions de l'établissement, jamais par contournement ;
+builds reproductibles aux empreintes publiées) peut être proposée dans
+SPEC.md dès maintenant, la vérification au vrai certificat restant à
+mener au jalon crédibilité (VISION.md §5).
