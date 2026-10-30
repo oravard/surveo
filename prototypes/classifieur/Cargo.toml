@@ -1,0 +1,34 @@
+[package]
+name = "surveo-proto-classifieur"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "EUPL-1.2"
+description = "Prototype 5 de la phase 2 (IMPL.md) : classifieur CamemBERT en ONNX quantifié, exécuté depuis Rust"
+
+[features]
+# Moteur tract, pour comparaison : l'exécutable passe de quelques Mo à 30 Mo.
+default = ["tract"]
+tract = ["dep:tract-onnx"]
+
+[[bin]]
+name = "classifieur"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+# ONNX Runtime chargé au démarrage depuis la bibliothèque livrée à côté de
+# l'exécutable : la même construction sert sous Linux et sous Windows (mingw).
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "ndarray", "load-dynamic", "api-31"] }
+# Expressions régulières en Rust pur (fancy-regex) : pas de C à compiler pour Windows.
+tokenizers = { version = "0.22", default-features = false, features = ["fancy-regex"] }
+tract-onnx = { version = "0.23", optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.60", features = ["Win32_Foundation", "Win32_System_ProcessStatus", "Win32_System_Threading"] }
+
+[profile.release]
+debug = false
+strip = true

@@ -31,7 +31,7 @@ SPEC.md concerné. Un prototype qui échoue remet en cause un choix
 | 2 | `capture` | Peut-on capturer l'écran sans droits d'administration sous Windows, X11 et Wayland (GNOME, KDE, COSMIC), et à quel prix ? | Miniature à 1 image/s pour moins de 5 % d'un cœur ; sous Wayland, consentement demandé une seule fois puis mémorisé | Chap. 1 (AFF), 4 (DIFF) | En partie ([1.1](#11-prototype-capture)) : GNOME et KDE à vérifier |
 | 3 | `sans-admin` | Peut-on installer l'agent, le démarrer à l'ouverture de session, appliquer un proxy utilisateur et rétablir exactement le réglage d'origine, sans droits d'administration ? | Aucune élévation demandée ; réglage d'origine rétabli à l'identique ; liste des navigateurs qui respectent le proxy | Chap. 1 (RESTR-4), 2 (WEB, MODE), 7 (INST) | Fait ([2.1](#21-prototype-sans-admin)) |
 | 4 | `tauri` | La console Tauri peut-elle embarquer le relais et afficher le plan alimenté par le prototype 1 ? Le panneau élève peut-il s'afficher dans une vue web côté agent ? | Console fonctionnelle sous Windows et Linux ; WebView2 disponible sans droits d'administration sur les postes Windows visés | Chap. 7 (RELAIS-1), 9 | Fait ([7.2](#72-prototype-tauri)) : pare-feu à confirmer avec un compte standard |
-| 5 | `classifieur` | Le classifieur CamemBERT, converti en ONNX et quantifié, tourne-t-il sur un poste élève modeste depuis Rust ? | Moins de 150 Mo sur disque, moins de 300 Mo de mémoire, moins de 100 ms par phrase ; sinon, plan B avec un modèle distillé | Chap. 5 (IA-2, SENS-3) | À faire |
+| 5 | `classifieur` | Le classifieur CamemBERT, converti en ONNX et quantifié, tourne-t-il sur un poste élève modeste depuis Rust ? | Moins de 150 Mo sur disque, moins de 300 Mo de mémoire, moins de 100 ms par phrase ; sinon, plan B avec un modèle distillé | Chap. 5 (IA-2, SENS-3) | Fait ([5.1](#51-prototype-classifieur)) |
 | 6 | `antivirus` | Comment Microsoft Defender et les antivirus courants des établissements réagissent-ils à l'agent, signé ou non ? | Aucun blocage d'un binaire signé ; sinon, liste des comportements en cause et des ajustements | Chap. 5, 7 | À faire |
 
 Le prototype 1 vient en premier : il ne dépend d'aucune bibliothèque
@@ -220,6 +220,158 @@ seule l'absence du proxy le fait.
 - Un programme qui n'utilise pas le proxy du système (client de jeu,
   certaines applications) n'est pas filtré : le filtrage sans droits
   d'administration ne vaut que pour les navigateurs.
+
+## 5. IA
+
+### 5.1 Prototype `classifieur`
+
+Code dans `prototypes/classifieur/` (jetable). Le modèle étudié est le
+classifieur de harcèlement et de détresse de la version précédente :
+CamemBERT de base affiné sur 4 classes (neutre, toxique, détresse,
+harcèlement), 443 Mo en float32.
+
+| Élément | Rôle |
+|---|---|
+| `export/export.py` | Convertit le modèle en ONNX, fusionne les couches d'attention, quantifie les poids en INT8 ; produit aussi une variante au format ORT et une variante limitée aux opérateurs ONNX standard |
+| `export/evaluate.py` | Mesure la qualité de chaque conversion sur la partie de validation du corpus d'entraînement (5 170 phrases), reconstituée à l'identique ; écrit `models/eval.jsonl` pour le banc Rust |
+| `classifieur` (Rust) | Banc : découpage en jetons, inférence par ONNX Runtime ou par tract (`--backend`), temps par phrase, mémoire, accord avec PyTorch ; ou classement des phrases passées en argument |
+| `dist.sh`, `mesurer.bat` | Assemblage des distributions Linux et Windows ; série de mesures à lancer sur un poste Windows |
+
+Les modèles, le moteur téléchargé et les distributions ne sont pas
+versionnés : `eval.jsonl` reprend des phrases du corpus.
+
+**Réalisation**
+
+- **Export** : l'exportateur classique de PyTorch (`dynamo=False`), avec
+  l'attention « eager ». Avec l'exportateur récent, le graphe d'attention
+  prend une forme que l'optimiseur d'ONNX Runtime ne sait pas fusionner.
+  Une fois fusionné, le graphe compte 12 opérateurs `Attention`, 24
+  `SkipLayerNormalization` et 12 `BiasGelu`.
+- **Quantification** dynamique INT8, par canal, de toutes les
+  multiplications de matrices et de la table des plongements : 111,5 Mo.
+  Les poids sont réduits à 7 bits (`reduce_range`), pour avoir
+  des résultats justes sur un processeur sans VNNI (enseignement 3).
+- **Découpage en jetons** : crate `tokenizers`, qui lit le
+  `tokenizer.json` de l'entraînement. Le remplissage à 128 jetons qu'il
+  contient doit être désactivé : il triplerait le coût d'une phrase
+  seule. Les expressions régulières sont en Rust pur (`fancy-regex`) :
+  aucun code C à compiler pour Windows. Le découpage est identique à
+  celui de Python : le banc Rust et `evaluate.py` font les mêmes
+  prédictions.
+- **ONNX Runtime** : crate `ort` 2.0.0-rc.15 en chargement dynamique. La
+  bibliothèque officielle 1.31.1 est livrée à côté de l'exécutable
+  (`onnxruntime.dll`, 17,3 Mo, signée par Microsoft ;
+  `libonnxruntime.so`, 29,3 Mo). Le même code sert sous Linux et sous
+  Windows, et la compilation croisée par mingw n'a pas à lier ONNX
+  Runtime.
+- **tract**, moteur écrit en Rust, pour comparaison (fonctionnalité
+  Cargo `tract`) : il ne connaît pas les opérateurs fusionnés d'ONNX
+  Runtime et lit une variante non fusionnée (`model-int8-std.onnx`), avec
+  un lot fixé à 1.
+
+**Qualité** : partie de validation, 5 170 phrases.
+
+| Modèle | Taille | Exactitude | F1 macro | Rappel détresse | Rappel harcèlement | Rappel toxique | Accord avec PyTorch |
+|---|---|---|---|---|---|---|---|
+| PyTorch, float32 | 443 Mo | 93,58 % | 95,50 % | 99,63 % | 98,65 % | 91,08 % | — |
+| ONNX, float32 | 443 Mo | 93,58 % | 95,50 % | 99,63 % | 98,65 % | 91,08 % | 100 % |
+| ONNX, INT8 sur 7 bits (retenu) | 111,5 Mo | 93,17 % | 95,20 % | 98,90 % | 98,50 % | 89,88 % | 98,53 % |
+| ONNX, INT8 sur 8 bits, processeur avec VNNI | 111,5 Mo | 92,92 % | 95,00 % | 98,90 % | 98,05 % | 89,22 % | 98,16 % |
+| ONNX, INT8 sur 8 bits, processeur sans VNNI | 111,5 Mo | 43,09 % | — | 0 % | 16,17 % | 0 % | 43,35 % |
+| ONNX, poids non signés (UINT8) | 111,6 Mo | 93,33 % | 95,32 % | 98,90 % | 98,50 % | 89,66 % | 98,30 % |
+
+**Performances** (30 octobre 2026) : Linux, Intel i9-13900K, un fil
+d'exécution sauf mention, phrases de 18,4 jetons en moyenne. Le cœur
+« E » (4,3 GHz, plus simple) sert d'approximation d'un poste modeste.
+Les lignes INT8 ont été mesurées avec les poids sur 8 bits ; ceux sur
+7 bits passent par les mêmes calculs et donnent les mêmes temps (10,0 ms
+en médiane, 228 Mo). Les poids non signés coûtent 17 ms en médiane.
+
+| Configuration | Médiane | p95 | Maximum | Phrase de 128 jetons | Mémoire (pic) | Chargement |
+|---|---|---|---|---|---|---|
+| ONNX Runtime, INT8, cœur P | 10,0 ms | 17,2 ms | 58,6 ms | 57 ms | 225 Mo | 130 ms |
+| ONNX Runtime, INT8, 4 cœurs P | 4,8 ms | 8,3 ms | 26,7 ms | — | 225 Mo | 139 ms |
+| ONNX Runtime, INT8, cœur E | 29,3 ms | 57,4 ms | 212 ms | 211 ms | 224 Mo | 225 ms |
+| ONNX Runtime, INT8 au format ORT sans pré-empaquetage, cœur P | 13,8 ms | 21,3 ms | 58 ms | — | 181 Mo | 73 ms |
+| ONNX Runtime, float32, cœur P | 28,5 ms | 47,4 ms | 138 ms | — | 662 Mo | 463 ms |
+| tract, INT8, cœur P (300 phrases) | 169 ms | 205 ms | 403 ms | — | 263 Mo | 425 ms |
+
+**Sur disque**, avec ONNX Runtime : 137,5 Mo sous Windows (modèle
+111,5, moteur 17,3, vocabulaire 2,4, exécutable 6,3) et 147,6 Mo sous
+Linux (moteur 29,3, exécutable 4,4). tract porterait l'exécutable à
+30 Mo.
+
+**Poste Windows** (30 octobre 2026) : AMD Ryzen 7 5800XT (Zen 3,
+8 cœurs, AVX2 sans VNNI), 16 Go, Windows 11, compte standard. Le
+runtime Visual C++ est présent dans `System32`.
+
+| Configuration | Médiane | p95 | Maximum | Mémoire (pic) | Chargement | Exactitude |
+|---|---|---|---|---|---|---|
+| ONNX Runtime, 7 bits, 1 fil | 14,9 ms | 28,3 ms | 103 ms | 188 Mo | 193 ms | 93,17 % ✅ |
+| ONNX Runtime, 7 bits, 2 fils (1 000 phrases) | 9,5 ms | 22,6 ms | 72,9 ms | 188 Mo | 197 ms | 93,60 % ✅ |
+| ONNX Runtime, poids non signés, 1 fil (1 000 phrases) | 17,5 ms | 34,6 ms | 118 ms | 188 Mo | 195 ms | 93,40 % ✅ |
+| ONNX Runtime, 8 bits, 1 fil | 14,8 ms | 28,1 ms | 101 ms | 188 Mo | 194 ms | 43,09 % ❌ |
+| ONNX Runtime, 8 bits, 2 fils (1 000 phrases) | 8,3 ms | 15,1 ms | 48,7 ms | 188 Mo | 193 ms | 45,00 % ❌ |
+| ONNX Runtime, 8 bits, format ORT sans pré-empaquetage (1 000 phrases) | 20,6 ms | 34,5 ms | 103 ms | 175 Mo | 116 ms | 45,00 % ❌ |
+| tract, 8 bits (100 phrases) | 2 086 ms | 3 360 ms | 3 995 ms | 252 Mo | 849 ms | 92,00 % ✅ |
+
+Le défaut se reproduit sous Linux en émulant un processeur Haswell
+(AVX2 sans VNNI) par `qemu-x86_64-static -cpu Haswell` : 40 %
+d'exactitude sur 100 phrases avec les poids sur 8 bits ; 93 % et 100 %
+d'accord avec PyTorch avec les poids sur 7 bits ; 94 % et 99 % avec les
+poids non signés. Sur le poste Windows, les poids sur 7 bits donnent
+exactement les mêmes prédictions que sur l'i9 (même exactitude, même
+accord, mêmes rappels).
+
+**Enseignements**
+
+1. **Les critères sont tenus sous Linux et sous Windows**, sans
+   recourir au plan B (modèle distillé) : moins de 150 Mo sur disque,
+   190 à 230 Mo de mémoire, 10 à 15 ms par phrase (29 ms sur un cœur E).
+2. **La quantification coûte 0,4 point d'exactitude.** Le rappel des
+   classes sensibles reste au-dessus de 98 % ; c'est la classe
+   « toxique » qui perd le plus (−1,2 point). `evaluate.py` sert de
+   contrôle à chaque nouvelle version du modèle.
+3. **Un modèle quantifié dépend du processeur.** Sans les instructions
+   VNNI (AMD jusqu'à Zen 3, Intel avant 2021 environ), ONNX Runtime
+   multiplie les octets par `vpmaddubsw`, qui sature sur 16 bits : avec
+   des poids sur 8 bits, le modèle ne reconnaît plus ni la détresse ni
+   la toxicité, sans aucune erreur visible. Des poids sur 7 bits évitent
+   la saturation, sans perte de qualité ni de vitesse ; les poids non
+   signés l'évitent aussi, mais sont plus lents. Toute nouvelle version d'un
+   modèle doit donc être contrôlée sur un processeur sans VNNI ;
+   l'émulation par QEMU suffit.
+4. **ONNX Runtime plutôt que tract** : tract est 17 fois plus lent sur
+   l'i9 et 140 fois plus lent sur le Ryzen (2 s par phrase), pour la même
+   mémoire et la même qualité. On garde ONNX Runtime, au prix d'une
+   bibliothèque à livrer. Sous Windows, celle-ci dépend du runtime
+   Visual C++ (`VCRUNTIME140.dll`, `MSVCP140.dll`), présent sur le poste
+   de test mais pas garanti ailleurs ; l'installer pour tout le poste
+   demande des droits d'administration. Microsoft autorise à livrer ces
+   DLL à côté de l'exécutable : c'est à prévoir dans le paquet de
+   l'agent.
+5. **Le temps de calcul n'est pas la vraie contrainte**, la mémoire
+   l'est. L'analyse se fait en tâche de fond, sur des phrases terminées ;
+   à une phrase toutes les quelques secondes, elle occupe moins de 1 %
+   d'un cœur. En revanche, le modèle chargé occupe 220 Mo tant que le
+   module est actif (190 Mo sous Windows). Il ne doit donc être chargé que si l'établissement
+   a activé le module (SENS-2) : par défaut, il ne coûte rien. Le format
+   ORT sans pré-empaquetage ramène la mémoire à 181 Mo, pour 40 % de
+   temps en plus.
+6. **Qualité du modèle** (hors de la question posée) : il confond
+   parfois « toxique » et « harcèlement » ; par exemple, une insulte
+   visant un logiciel est classée harcèlement. Ce sera à prendre en
+   compte en fixant les niveaux et les motifs d'alerte (SPEC.md, 5.10).
+
+**Limites**
+
+- Le Ryzen du poste Windows et le cœur E de l'i9 restent des processeurs
+  récents ; un vrai poste de salle ancien reste à mesurer.
+- Les phrases de validation viennent du corpus d'entraînement, pas de
+  textes d'élèves frappés en classe.
+- Une construction réduite d'ONNX Runtime, limitée aux opérateurs du
+  modèle (`required_operators.config`, produit lors de la conversion au
+  format ORT), réduirait la bibliothèque ; non essayée.
 
 ## 6. Rôles et confiance
 

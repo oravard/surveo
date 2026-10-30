@@ -893,7 +893,9 @@ fonctionne sans IA.
   repérer des situations préoccupantes.
 - **SENS-2** — Ce module est **désactivé par défaut**. Seul le rôle
   établissement peut l'activer (chapitre 6), car l'établissement est
-  responsable de ce traitement.
+  responsable de ce traitement. Désactivé, il n'occupe aucune ressource
+  sur le poste : son modèle n'est pas livré avec l'agent, mais téléchargé
+  depuis le relais quand l'établissement active le module.
 - **SENS-3** — L'analyse se fait **sur le poste** (IA-2). Le texte frappé
   n'est ni transmis ni conservé. Seule une **alerte**, portant un niveau
   et un motif général (« propos potentiellement violents »), remonte.
@@ -991,11 +993,19 @@ fonctionne sans IA.
   hébergé en France imposable pour les données d'élèves.
 - Aucune analyse par l'IA pendant un examen.
 
+30 octobre 2026, après le prototype `classifieur` (IMPL.md, 5.1) :
+
+- Les classifieurs sont embarqués sur le poste au format ONNX quantifié,
+  sans recourir à un modèle distillé. Celui de harcèlement et de détresse
+  occupe environ 140 Mo sur disque et 190 à 230 Mo de mémoire quand il
+  est actif ; il analyse une phrase en 10 à 15 ms, sous Windows comme
+  sous Linux.
+- Le modèle n'est pas livré avec l'agent : il est téléchargé depuis le
+  relais quand l'établissement active le module, et n'est chargé que
+  tant que le module est actif (SENS-2).
+
 ### 5.10 Questions ouvertes
 
-- Taille et format des classifieurs embarqués (par exemple modèles
-  convertis en ONNX, éventuellement distillés) : contrainte de poids
-  acceptable sur un poste élève ?
 - Un antivirus peut signaler un agent qui lit le clavier : à vérifier
   tôt ; le fait que rien ne soit exfiltré doit faciliter l'acceptation.
 - Niveaux d'alerte de détresse : combien, et quel libellé pour éviter

@@ -16,3 +16,10 @@ prototypes/sans-admin/*.log
 prototypes/tauri/dist/
 prototypes/tauri/*/target/
 prototypes/tauri/*/gen/
+# Modèles convertis, moteur ONNX Runtime téléchargé, environnement Python.
+# models/eval.jsonl reprend des phrases du corpus d'entraînement.
+prototypes/classifieur/models/
+prototypes/classifieur/runtime/
+prototypes/classifieur/dist/
+prototypes/classifieur/export/.venv/
+prototypes/classifieur/export/__pycache__/
