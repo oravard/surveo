@@ -32,7 +32,7 @@ SPEC.md concerné. Un prototype qui échoue remet en cause un choix
 | 3 | `sans-admin` | Peut-on installer l'agent, le démarrer à l'ouverture de session, appliquer un proxy utilisateur et rétablir exactement le réglage d'origine, sans droits d'administration ? | Aucune élévation demandée ; réglage d'origine rétabli à l'identique ; liste des navigateurs qui respectent le proxy | Chap. 1 (RESTR-4), 2 (WEB, MODE), 7 (INST) | Fait ([2.1](#21-prototype-sans-admin)) |
 | 4 | `tauri` | La console Tauri peut-elle embarquer le relais et afficher le plan alimenté par le prototype 1 ? Le panneau élève peut-il s'afficher dans une vue web côté agent ? | Console fonctionnelle sous Windows et Linux ; WebView2 disponible sans droits d'administration sur les postes Windows visés | Chap. 7 (RELAIS-1), 9 | Fait ([7.2](#72-prototype-tauri)) : pare-feu à confirmer avec un compte standard |
 | 5 | `classifieur` | Le classifieur CamemBERT, converti en ONNX et quantifié, tourne-t-il sur un poste élève modeste depuis Rust ? | Moins de 150 Mo sur disque, moins de 300 Mo de mémoire, moins de 100 ms par phrase ; sinon, plan B avec un modèle distillé | Chap. 5 (IA-2, SENS-3) | Fait ([5.1](#51-prototype-classifieur)) |
-| 6 | `antivirus` | Comment Microsoft Defender et les antivirus courants des établissements réagissent-ils à l'agent, signé ou non ? | Aucun blocage d'un binaire signé ; sinon, liste des comportements en cause et des ajustements | Chap. 5, 7 | À faire |
+| 6 | `antivirus` | Comment Microsoft Defender et les antivirus courants des établissements réagissent-ils à l'agent, signé ou non ? | Aucun blocage d'un binaire signé ; sinon, liste des comportements en cause et des ajustements | Chap. 5, 7 | En cours ([7.3](#73-prototype-antivirus)) : protocole posé, mesures signées à faire |
 
 Le prototype 1 vient en premier : il ne dépend d'aucune bibliothèque
 système et sert de base aux prototypes 2 et 4. Les prototypes 3 et 6
@@ -544,3 +544,102 @@ principale limite du prototype `relais` (7.1).
   console (par un administrateur ou le service informatique), ou relais
   d'établissement ou hébergé quand elle est impossible.
 - Signature du code dès les premières versions diffusées.
+
+### 7.3 Prototype `antivirus`
+
+Code (jetable) dans `prototypes/antivirus/`. Ce prototype ne produit pas
+de binaire : il mesure la réaction des antivirus aux agents **déjà
+construits** par les prototypes 2, 3 et 5, et établit la voie par
+laquelle un logiciel légitime se fait reconnaître. Question et critère :
+tableau de phase 2, ligne 6.
+
+**Position de principe.** Surveo est libre et transparent (l'élève est
+informé, le service informatique peut lire le code). On cherche donc à
+**faire reconnaître** l'agent, pas à le dissimuler. L'empaquetage,
+l'obscurcissement et l'anti-analyse sont écartés : contraires à la
+transparence, mal notés par les éditeurs d'antivirus, et vains sur un
+poste de salle géré. La voie retenue est la signature, la réputation, la
+documentation et les exclusions décidées par l'établissement.
+
+**Ce qui, dans l'agent, peut alerter un antivirus** — tout légitime,
+chacun ressemblant pourtant à une famille d'indésirables : binaire
+inconnu non signé (SmartScreen) ; capture d'écran répétée (`capture`) ;
+lecture de texte pour le classifieur (`classifieur`, vu comme un
+enregistreur de frappe — question ouverte SPEC.md 5.10) ; modification du
+proxy de l'utilisateur et inscription au démarrage (`sans-admin`) ;
+connexions sortantes vers le relais ; binaire MinGW (`capture.exe`),
+réputation souvent mauvaise.
+
+**Protocole** (détail dans `prototypes/antivirus/PROTOCOLE.md` et fiche
+de test `fiche-test-windows.txt`). Les trois binaires non signés
+(empreintes dans `empreintes.sha256`) sont soumis, sur Microsoft Defender
++ SmartScreen puis sur un antivirus d'établissement, dans trois états :
+non signé, signé avec un certificat de test (effet d'une signature
+valide, sans réputation — `signer-test.md`), signé avec le vrai
+certificat du projet (effet signature + réputation). Résultats reportés
+dans `resultats.md`, une ligne par poste × binaire × état de signature.
+Les postes de salle sans droits d'administration (postes Région) se
+testent sur place.
+
+**Premiers constats déjà recueillis** par les autres prototypes, sur un
+seul poste Windows, binaires non signés :
+
+| Binaire | Antivirus | Réaction observée | Source |
+|---|---|---|---|
+| `capture.exe` | Avast | jugé suspect dès le lancement ; analyse non aboutie après 50 s | 1.1 |
+| `sans-admin.exe` | Avast | exécutable non signé bloqué (désactivation nécessaire) | 2.1 |
+| `sans-admin.exe` | Defender | aucune réaction | 2.1 |
+| console et panneau élève (Tauri) | Defender / SmartScreen | jugés non sûrs (éditeur inconnu) | 7.2 |
+
+Converge avec la question ouverte de VISION.md §7 et le critère de
+crédibilité « exécutables signés » (§5) : **sur binaire non signé, le
+blocage est déjà la règle**. La mesure qui reste à faire est celle du
+binaire **signé**, condition du critère de réussite.
+
+**Première passe systématique** (30 octobre 2026, poste Windows 11,
+Defender 4.18.25080.5 + Avast 26.10.11201.1002, compte standard ;
+relevé complet dans `prototypes/antivirus/resultats.md`) :
+
+- SmartScreen signale les **trois** binaires non signés comme « éditeur
+  non reconnu » — attendu, levé par la signature.
+- `capture.exe` : aucune réaction de l'antivirus (binaire déjà exécuté
+  lors des tests précédents, donc en réputation locale ; à revérifier
+  avec un hash neuf).
+- `classifieur.exe` : envoyé à l'analyse cloud, sans blocage.
+- `sans-admin.exe` : **mis en quarantaine par Avast sous le nom
+  `IDP.Generic`, au moment où l'agent modifie le proxy de
+  l'utilisateur** — pas au lancement. `IDP.Generic` est la détection
+  comportementale générique d'Avast, connue pour ses faux positifs sur
+  les binaires non signés qui touchent au réseau. C'est le blocage le
+  plus dur observé jusqu'ici, et il confirme que **la modification du
+  proxy par un binaire inconnu est le comportement le plus à risque**.
+
+`IDP.Generic` étant une détection de réputation autant que de
+comportement, une signature de test (auto-signée) ne la lèvera
+probablement pas : seul le vrai certificat, plus la soumission du faux
+positif à Avast, est attendu efficace. La signature de test reste utile
+pour mesurer l'effet « signature valide » sur Defender et SmartScreen.
+
+**Voie de reconnaissance visée** (à confirmer par les mesures signées) :
+
+1. **Signer en Authenticode**, avec horodatage, tous les exécutables
+   distribués. Certificat **EV** = réputation SmartScreen immédiate ;
+   **OV** = réputation qui monte avec les installations.
+2. **Stabiliser la réputation** : éditeur constant, empreintes publiées,
+   **soumission des binaires aux éditeurs** comme connus et sains
+   (portail Microsoft ; formulaires de faux positif des autres).
+3. **Documenter pour le service informatique** (comportement, chemins,
+   empreintes, builds reproductibles — SPEC.md 7.10) pour qu'une
+   exclusion soit posée en connaissance de cause.
+4. **Mode déployé** : exclusion posée par l'établissement (stratégie de
+   groupe, console de l'antivirus) ; voie la plus robuste.
+5. **Module sensible** : rappeler que l'analyse est locale, que rien
+   n'est exfiltré et que le modèle n'est pas livré par défaut (SPEC.md
+   5.10) — argument d'acceptation.
+
+**Limites de ce qui est fait.** Les constats actuels portent sur un seul
+poste Windows et deux antivirus (Avast, Defender), tous sur binaire non
+signé. Rien n'est encore mesuré signé, ni sur un antivirus d'entreprise,
+ni sur un vrai poste de salle. La décision de spécification (binaires
+signés, reconnaissance par signature et documentation plutôt que
+contournement) sera proposée dans SPEC.md une fois ces mesures faites.

@@ -1,0 +1,8 @@
+# Empreintes SHA-256 des binaires soumis au prototype `antivirus`.
+# Binaires NON signés, tels que produits par les prototypes 2, 3 et 5.
+# Un hash stable, publié, est le socle de la réputation auprès des
+# éditeurs d'antivirus : on teste ces empreintes précises, puis les
+# mêmes binaires une fois signés.
+96ab7691413f3460d9ab543239b2163b36fdf5cdeb7f5e86c6db863d34b7f5f2  capture.exe
+a1be7511a7466e6659b926792732982e9f0c8733455a17163d22d0b1aa0123bc  classifieur.exe
+a5b3e30d9a27aa29d628c826c22b3dd41b74d918a25695a1e1a59b0943175c73  sans-admin.exe

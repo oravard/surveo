@@ -1,0 +1,62 @@
+Surveo - prototype 6 (antivirus) - fiche de test Windows
+========================================================
+
+But : voir comment l'antivirus du poste et SmartScreen reagissent aux
+binaires de l'agent, NON SIGNES d'abord, puis signes. On ne cherche pas
+a passer outre : on note ce qui bloque, pour le corriger par la signature
+et la reputation.
+
+A faire depuis un COMPTE STANDARD (sans droits d'administration), dans
+PowerShell lance normalement (pas "en tant qu'administrateur").
+
+AVANT DE COMMENCER
+  - Noter l'antivirus present et sa version :
+      Get-MpComputerStatus | Select AMProductVersion, AMEngineVersion   (Defender)
+    et, s'il y a un autre antivirus, sa marque et sa version exactes.
+  - Ne PAS desactiver l'antivirus. S'il bloque, c'est le resultat qu'on
+    cherche : le noter et passer a la suite.
+  - Copier capture.exe, classifieur.exe et sans-admin.exe dans Documents.
+      cd $HOME\Documents
+  - Verifier les empreintes (doivent correspondre a empreintes.sha256) :
+      Get-FileHash capture.exe, classifieur.exe, sans-admin.exe -Algorithm SHA256
+
+1. SmartScreen au premier lancement (chaque binaire)
+   Double-cliquer capture.exe dans l'Explorateur.
+   -> Un ecran bleu "Windows a protege votre ordinateur" apparait-il ?
+      (attendu pour un binaire non signe : oui, "editeur inconnu")
+   -> Noter le texte exact. Fermer sans executer (bouton "Ne pas executer").
+   Recommencer pour classifieur.exe et sans-admin.exe.
+
+2. capture.exe - capture d'ecran repetee
+   .\capture.exe --backend windows --duration 30 --continu
+   -> L'antivirus reagit-il (blocage, quarantaine, analyse qui traine,
+      avertissement) ? Noter le message exact et le moment (au lancement,
+      apres N secondes).
+
+3. classifieur.exe - analyse de texte locale
+   .\classifieur.exe        (ou le binaire de mesure fourni avec le prototype 5)
+   -> Meme observation. C'est le binaire le plus gros (30 Mo) et celui
+      qui "lit du texte" : noter toute alerte de type keylogger.
+
+4. sans-admin.exe - proxy utilisateur + demarrage de session
+   .\sans-admin.exe installer
+   -> UAC ? (attendu : non)  Alerte antivirus sur l'ajout au demarrage ?
+   .\sans-admin.exe filtrer bloquer example.com --duree 60
+   -> Alerte sur la modification du proxy ? Noter.
+   .\sans-admin.exe desinstaller
+
+5. Analyse en ligne (facultatif, hors poste de salle)
+   Deposer chaque binaire sur un service d'analyse multi-antivirus et
+   noter combien de moteurs le signalent et sous quel nom (souvent
+   generique : "Unsigned", "Wacatac", "Heuristic"). Utile pour la
+   soumission de faux positif.
+
+A RENVOYER
+  - Antivirus + version de chaque poste teste.
+  - Pour chaque binaire : texte exact de SmartScreen (etape 1) et de
+    l'antivirus (etapes 2 a 4), avec le moment de l'alerte.
+  - Si un binaire est mis en quarantaine, le nom de la detection.
+  - Reporter le tout dans resultats.md.
+
+Puis on recommence la meme fiche avec les binaires SIGNES (voir
+signer-test.md pour la signature de test, et le vrai certificat ensuite).

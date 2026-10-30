@@ -1,0 +1,53 @@
+Surveo - prototype 6 (antivirus) - fiche de test Windows, binaires SIGNES
+=========================================================================
+
+Objectif : refaire les memes essais que fiche-test-windows.txt, mais avec
+les trois binaires signes par un CERTIFICAT DE TEST (auto-signe). But :
+voir si une signature VALIDE, a elle seule (sans reputation), calme
+Defender et SmartScreen. Pour Avast IDP.Generic, on s'attend a ce que la
+detection PERSISTE : ce serait la preuve que seule la reputation (vrai
+certificat + soumission du faux positif) la levera.
+
+Le certificat de test ne sert qu'a la mesure, sur ce PC. Il n'apporte
+aucune reputation et ne doit jamais servir a distribuer.
+
+PREPARATION (PowerShell EN ADMINISTRATEUR, une seule fois)
+  # Certificat de test + ajout aux autorites de confiance de la machine
+  $cert = New-SelfSignedCertificate -Type CodeSigningCert `
+    -Subject "CN=Surveo Test" -CertStoreLocation Cert:\CurrentUser\My
+  Export-Certificate -Cert $cert -FilePath surveo-test.cer
+  Import-Certificate -FilePath surveo-test.cer -CertStoreLocation Cert:\LocalMachine\Root
+
+SIGNER (meme fenetre)
+  $ts = "http://timestamp.digicert.com"
+  Set-AuthenticodeSignature -FilePath .\capture.exe     -Certificate $cert -TimestampServer $ts
+  Set-AuthenticodeSignature -FilePath .\classifieur.exe -Certificate $cert -TimestampServer $ts
+  Set-AuthenticodeSignature -FilePath .\sans-admin.exe  -Certificate $cert -TimestampServer $ts
+  # Verifier : Status doit valoir "Valid"
+  Get-AuthenticodeSignature .\capture.exe, .\classifieur.exe, .\sans-admin.exe | Format-List
+
+IMPORTANT : la signature change le binaire, donc son empreinte SHA-256.
+Les hashes de empreintes.sha256 ne correspondront plus (normal). Noter
+les nouveaux hashes des binaires signes :
+  Get-FileHash capture.exe, classifieur.exe, sans-admin.exe -Algorithm SHA256
+
+ESSAIS (depuis un COMPTE STANDARD de preference, comme pour le non signe)
+  1. SmartScreen au premier lancement : double-cliquer chaque binaire.
+     -> L'ecran "editeur inconnu" apparait-il encore ? (on veut savoir si
+        la signature de test le fait disparaitre ou non)
+  2. .\capture.exe --backend windows --duration 30 --continu   -> reaction ?
+  3. .\classifieur.exe                                          -> reaction ?
+  4. .\sans-admin.exe installer
+     .\sans-admin.exe filtrer bloquer example.com --duree 60
+        -> Avast remet-il IDP.Generic en quarantaine, ou plus rien ?
+     .\sans-admin.exe desinstaller
+
+A RENVOYER / A REPORTER dans resultats.md (nouvelles lignes, colonne
+Signature = "signe test") :
+  - Pour chaque binaire : SmartScreen (oui/non) et reaction de l'antivirus.
+  - En particulier le sort de sans-admin.exe a l'etape "filtrer".
+  - Les nouveaux hashes des binaires signes.
+
+NETTOYAGE (optionnel, apres les tests)
+  # Retirer le certificat de test des autorites de confiance
+  Get-ChildItem Cert:\LocalMachine\Root | Where-Object { $_.Subject -eq "CN=Surveo Test" } | Remove-Item
