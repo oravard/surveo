@@ -601,7 +601,9 @@ Defender 4.18.25080.5 + Avast 26.10.11201.1002, compte standard ;
 relevé complet dans `prototypes/antivirus/resultats.md`) :
 
 - SmartScreen signale les **trois** binaires non signés comme « éditeur
-  non reconnu » — attendu, levé par la signature.
+  non reconnu » — attendu ; mais la passe signé test (plus bas) montre
+  qu'une signature quelconque ne suffit pas à le lever : il faut un
+  certificat reconnu par SmartScreen et de la réputation.
 - `capture.exe` : aucune réaction de l'antivirus (binaire déjà exécuté
   lors des tests précédents, donc en réputation locale ; à revérifier
   avec un hash neuf).
