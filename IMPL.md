@@ -13,7 +13,7 @@ par les identifiants de règles.
 | 0. Spécification | SPEC.md | Fait |
 | 1. Maquette | `maquette/console-surveo.html`, validée (SPEC.md, 9.10) | Fait |
 | 2. Prototypes techniques | Lever les risques techniques un par un (ci-dessous) | Fait |
-| 3. Architecture | Composants, protocole, organisation du code, à partir des résultats de la phase 2 | Proposée, à valider ([Architecture](#architecture)) |
+| 3. Architecture | Composants, protocole, organisation du code, à partir des résultats de la phase 2 | Validée ([Architecture](#architecture)) ; questions ouvertes reportées au développement |
 | 4. Développement | Par incréments complets, en commençant par une séance minimale | À faire |
 
 ### Phase 2 — prototypes techniques
@@ -309,7 +309,9 @@ chacun du poste à la console :
 
 ### Décisions
 
-30 octobre 2026 : architecture proposée, à valider.
+30 octobre 2026 : architecture proposée et validée ; les questions
+ouvertes ci-dessous sont reportées au développement (leur impact
+s'éclaircira en avançant).
 
 - Trois programmes Rust (agent, console Tauri, relais), interfaces en
   TypeScript ; le relais est le même binaire aux trois emplacements.
