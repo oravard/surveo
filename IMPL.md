@@ -32,7 +32,7 @@ SPEC.md concerné. Un prototype qui échoue remet en cause un choix
 | 3 | `sans-admin` | Peut-on installer l'agent, le démarrer à l'ouverture de session, appliquer un proxy utilisateur et rétablir exactement le réglage d'origine, sans droits d'administration ? | Aucune élévation demandée ; réglage d'origine rétabli à l'identique ; liste des navigateurs qui respectent le proxy | Chap. 1 (RESTR-4), 2 (WEB, MODE), 7 (INST) | Fait ([2.1](#21-prototype-sans-admin)) |
 | 4 | `tauri` | La console Tauri peut-elle embarquer le relais et afficher le plan alimenté par le prototype 1 ? Le panneau élève peut-il s'afficher dans une vue web côté agent ? | Console fonctionnelle sous Windows et Linux ; WebView2 disponible sans droits d'administration sur les postes Windows visés | Chap. 7 (RELAIS-1), 9 | Fait ([7.2](#72-prototype-tauri)) : pare-feu à confirmer avec un compte standard |
 | 5 | `classifieur` | Le classifieur CamemBERT, converti en ONNX et quantifié, tourne-t-il sur un poste élève modeste depuis Rust ? | Moins de 150 Mo sur disque, moins de 300 Mo de mémoire, moins de 100 ms par phrase ; sinon, plan B avec un modèle distillé | Chap. 5 (IA-2, SENS-3) | Fait ([5.1](#51-prototype-classifieur)) |
-| 6 | `antivirus` | Comment Microsoft Defender et les antivirus courants des établissements réagissent-ils à l'agent, signé ou non ? | Aucun blocage d'un binaire signé ; sinon, liste des comportements en cause et des ajustements | Chap. 5, 7 | En cours ([7.3](#73-prototype-antivirus)) : Defender et Avast mesurés (non signé, signé test) ; reste la vérification au vrai certificat |
+| 6 | `antivirus` | Comment Microsoft Defender et les antivirus courants des établissements réagissent-ils à l'agent, signé ou non ? | Aucun blocage d'un binaire signé ; sinon, liste des comportements en cause et des ajustements | Chap. 5, 7 | Conclu pour l'essentiel ([7.3](#73-prototype-antivirus)) : Defender ne bloque aucun comportement ; décision en SPEC INST-7 ; vrai certificat à vérifier au jalon crédibilité |
 
 Le prototype 1 vient en premier : il ne dépend d'aucune bibliothèque
 système et sert de base aux prototypes 2 et 4. Les prototypes 3 et 6
@@ -670,11 +670,10 @@ certificat** (autorité reconnue) : lève-t-il, avec le temps et le volume,
 l'avertissement SmartScreen, et évite-t-il le blocage CyberCapture et
 `IDP.Generic` d'Avast, après soumission du faux positif ? Restent aussi
 non couverts un antivirus d'entreprise et un vrai poste de salle. Le
-`classifieur.exe` est à retester avec son `onnxruntime.dll`. Comme
-l'essentiel est acquis — Defender ne bloque aucun comportement, Avast ne
-bloque que sur réputation de hash —, la décision de spécification
-(binaires signés ; reconnaissance par signature, réputation,
-documentation et exclusions de l'établissement, jamais par contournement ;
-builds reproductibles aux empreintes publiées) peut être proposée dans
-SPEC.md dès maintenant, la vérification au vrai certificat restant à
-mener au jalon crédibilité (VISION.md §5).
+`classifieur.exe` est à retester avec son `onnxruntime.dll`. L'essentiel
+est acquis — Defender ne bloque aucun comportement, Avast ne bloque que
+sur réputation de hash — et la décision de spécification est portée par
+SPEC.md (INST-7 et la décision datée du 7.9 : binaires signés,
+reconnaissance par signature, réputation, documentation et exclusions de
+l'établissement, jamais par contournement). La vérification au vrai
+certificat reste à mener au jalon crédibilité (VISION.md §5).

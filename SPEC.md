@@ -1006,8 +1006,15 @@ fonctionne sans IA.
 
 ### 5.10 Questions ouvertes
 
-- Un antivirus peut signaler un agent qui lit le clavier : à vérifier
-  tôt ; le fait que rien ne soit exfiltré doit faciliter l'acceptation.
+- Un antivirus peut signaler un agent qui lit le clavier : vérifié tôt
+  (prototype `antivirus`, IMPL.md 7.3). Microsoft Defender ne bloque
+  aucun comportement de l'agent, et le classifieur fait de l'inférence
+  sur du texte sans installer de hook clavier. La question se déplace
+  donc vers *la façon dont l'agent final captera le texte* (éviter les
+  motifs d'enregistreur de frappe) et vers les antivirus tiers, qui
+  bloquent surtout par manque de réputation du binaire (réponse :
+  signature et réputation, INST-7). Le fait que rien ne soit exfiltré
+  (analyse sur le poste, SENS-3) facilite l'acceptation.
 - Niveaux d'alerte de détresse : combien, et quel libellé pour éviter
   les faux positifs anxiogènes ?
 - Les classifieurs publiés avec l'agent (open source) sont extractibles :
@@ -1242,6 +1249,18 @@ intervenir poste par poste.
 - **INST-6** — L'agent ne réclame aucun droit qu'il n'utilise pas. En
   mode sans administration, il n'obtient aucune capacité réservée à
   l'administrateur.
+- **INST-7** — Les exécutables distribués (agent et console) sont signés
+  en Authenticode au nom de l'éditeur. Leur reconnaissance par les
+  antivirus se gagne par des moyens transparents, jamais par un
+  contournement — contraire à l'esprit du logiciel libre, où le service
+  informatique peut lire le code :
+  - signature et réputation de l'éditeur (éditeur constant, builds
+    reproductibles, empreintes publiées) ;
+  - soumission des faux positifs aux éditeurs d'antivirus ;
+  - en mode déployé, exclusion posée par l'établissement.
+
+  Tant que l'éditeur n'a pas de réputation, un avertissement au premier
+  lancement reste possible ; l'agent ne cherche pas à y échapper.
 
 ### 7.3 Le relais
 
@@ -1384,6 +1403,16 @@ intervenir poste par poste.
   - RELAIS-6 : un relais dans la classe demande une autorisation du
     pare-feu, accordée une fois par un administrateur ; à défaut, relais
     d'établissement ou hébergé.
+- 30 octobre 2026, après le prototype `antivirus` (IMPL.md, 7.3) :
+  INST-7, exécutables signés et reconnus par signature, réputation et
+  documentation, jamais par contournement. Microsoft Defender, l'antivirus
+  le plus répandu, ne bloque aucun comportement de l'agent (capture,
+  proxy, démarrage) : il reste l'avertissement SmartScreen au premier
+  lancement, qui se lève avec la réputation. Les antivirus tiers (Avast
+  observé) bloquent surtout faute de réputation du binaire, d'où les
+  builds reproductibles aux empreintes publiées et la soumission des faux
+  positifs. Vérification avec un vrai certificat à mener au jalon
+  crédibilité (VISION.md §5).
 
 ### 7.10 Questions ouvertes
 
