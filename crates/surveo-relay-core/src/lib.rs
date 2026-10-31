@@ -7,7 +7,10 @@
 //! Le relais est mince : il authentifie (CONF-3), route entre membres de
 //! son établissement (CONF-4) et ne garde rien de durable. Ses files sont
 //! bornées : pour les miniatures, seule la plus récente de chaque poste
-//! attend d'être remise à une console lente.
+//! attend d'être remise à une console lente ; les morceaux de fichier
+//! passent par la file des messages de contrôle, dans l'ordre, et le
+//! destinataire, qui les tire un par un, redemande celui qui se perd
+//! (IMPL.md, 3.1).
 
 use anyhow::Result;
 use bytes::Bytes;
@@ -212,6 +215,12 @@ impl LocalSender {
     pub fn send(&self, m: &FromConsole) {
         self.inner.from_console(&self.member, m);
     }
+
+    /// Trame binaire vers un poste, codée par [`encode_console_frame`]
+    /// avec le poste destinataire.
+    pub fn send_binary(&self, frame: &[u8]) {
+        self.inner.from_console_binary(frame);
+    }
 }
 
 impl Inner {
@@ -253,6 +262,7 @@ impl Inner {
                     Ok(m) => self.from_console(&member, &m),
                     Err(e) => log::debug!("{member} : message illisible ({e})"),
                 },
+                (Role::Console, WsMessage::Binary(b)) => self.from_console_binary(&b),
                 (_, WsMessage::Close(_)) => break,
                 _ => {}
             }
@@ -341,8 +351,27 @@ impl Inner {
     fn from_agent_binary(&self, member: &str, frame: &[u8]) {
         let Some((kind, payload)) = decode_agent_frame(frame) else { return };
         let out = Bytes::from(encode_console_frame(kind, member, payload));
-        for c in self.peers.lock().unwrap().consoles.values() {
-            c.out.thumbs.put(member, out.clone());
+        for (console, c) in self.peers.lock().unwrap().consoles.iter() {
+            match kind {
+                BinKind::Thumbnail => c.out.thumbs.put(member, out.clone()),
+                BinKind::Chunk => {
+                    if c.out.control.try_send(Frame::Binary(out.clone())).is_err() {
+                        log::warn!("console {console} saturée : morceau de fichier perdu");
+                    }
+                }
+            }
+        }
+    }
+
+    /// Morceau de fichier d'une console vers un poste ; une console
+    /// n'envoie pas de miniature.
+    fn from_console_binary(&self, frame: &[u8]) {
+        let Some((BinKind::Chunk, member, payload)) = decode_console_frame(frame) else { return };
+        let peers = self.peers.lock().unwrap();
+        let Some(a) = peers.agents.get(member) else { return };
+        let out = Bytes::from(encode_agent_frame(BinKind::Chunk, payload));
+        if a.peer.out.control.try_send(Frame::Binary(out)).is_err() {
+            log::warn!("poste {member} saturé : morceau de fichier perdu");
         }
     }
 }

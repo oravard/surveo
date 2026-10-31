@@ -671,15 +671,24 @@ s'appliquent pas à un poste personnel (RESTR-6, voir 2.7).
   par séance et par noms d'élèves, résultats de sondage montrés aux
   élèves sans noms.
 
+31 octobre 2026, à la réalisation (IMPL.md, 3.1), décisions de
+l'utilisateur :
+
+- Un fichier distribué que l'élève a modifié est retiré lui aussi à la
+  fin de la séance : le travail doit avoir été rendu pendant la séance
+  (RENDU-8), et l'élève en est prévenu (DISTRIB-8).
+- Taille maximale d'un rendu (RENDU-7) : 50 Mo ; d'un fichier distribué
+  ou joint à un modèle : 200 Mo.
+- Le panneau élève s'ouvre de lui-même au lancement d'un TP, sans
+  prendre le premier plan ; seul le sondage s'impose (AGENT-4).
+- Un seul sondage à la fois dans la séance ; ses réponses ne sont pas
+  conservées après la séance (CONSERV-1).
+
 ### 3.10 Questions ouvertes
 
 - L'enseignant peut-il modifier un TP en cours (ajouter du temps, une
   étape) ?
 - Faut-il des réponses libres (texte court) dans les sondages ?
-- Un fichier distribué que l'élève a modifié est-il retiré lui aussi ?
-  Proposition : oui, puisque le travail doit avoir été rendu pendant la
-  séance (RENDU-8) et que le prévenir (DISTRIB-8) laisse le temps de le
-  faire.
 - Partage des modèles entre collègues : un simple fichier suffit-il, ou
   faut-il une bibliothèque commune à l'établissement (voire publique,
   dans l'esprit des communs numériques éducatifs) ?

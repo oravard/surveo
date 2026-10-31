@@ -9,9 +9,10 @@ quand il le faut.
 > **État du projet : en développement.** Surveo est en cours de refonte
 > complète à partir d'un premier prototype. La version d'essai couvre la
 > séance (plan de salle, miniatures des écrans, ouverture, prolongation et
-> clôture, retour des postes à leur état d'origine) et la maîtrise de la
+> clôture, retour des postes à leur état d'origine), la maîtrise de la
 > classe (écran en pause, filtrage web, applications interdites, mode
-> examen).
+> examen) et la pédagogie (modèles de TP, suivi des étapes, rendus,
+> distribution de fichiers, sondages).
 
 ## Principes
 

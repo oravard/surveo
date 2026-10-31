@@ -5,6 +5,7 @@ import type { Pos } from "./Pos";
 import type { PosteKind } from "./PosteKind";
 import type { ScreenState } from "./ScreenState";
 import type { StationState } from "./StationState";
+import type { StationTp } from "./StationTp";
 import type { WebPolicy } from "./WebPolicy";
 import type { WebState } from "./WebState";
 
@@ -29,4 +30,17 @@ web_state: WebState,
 /**
  * Applications ouvertes, si l'enseignant les a demandées (APP-1).
  */
-apps: Array<OpenApp> | null, };
+apps: Array<OpenApp> | null, 
+/**
+ * TP du poste et son avancement (TP-8).
+ */
+tp: StationTp | null, 
+/**
+ * Fichiers distribués au poste, TP compris, et combien il en a reçus
+ * (DISTRIB-4).
+ */
+files_total: number, files_received: number, 
+/**
+ * Le poste a répondu au sondage ouvert ; aucun : pas interrogé.
+ */
+answered: boolean | null, };

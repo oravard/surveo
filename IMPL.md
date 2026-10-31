@@ -14,7 +14,7 @@ par les identifiants de règles.
 | 1. Maquette | `maquette/console-surveo.html`, validée (SPEC.md, 9.10) | Fait |
 | 2. Prototypes techniques | Lever les risques techniques un par un (ci-dessous) | Fait |
 | 3. Architecture | Composants, protocole, organisation du code, à partir des résultats de la phase 2 | Validée ([Architecture](#architecture)) ; questions ouvertes reportées au développement |
-| 4. Développement | Par incréments complets, en commençant par une séance minimale | En cours : tranches 1 et 2 faites ([1.2](#12-séance-minimale), [2.2](#22-maîtrise-en-séance)) |
+| 4. Développement | Par incréments complets, en commençant par une séance minimale | En cours : tranches 1 à 3 faites ([1.2](#12-séance-minimale), [2.2](#22-maîtrise-en-séance), [3.1](#31-pédagogie-en-séance)) |
 
 ### Phase 2 — prototypes techniques
 
@@ -271,7 +271,7 @@ communes :
 | `surveo-identity` | `crates/` | Clé d'établissement, certificats de membre, paquet de rattachement (6.1). |
 | `surveo-net` | `crates/` | WebSocket sur TLS, authentification mutuelle liée à la session TLS, recherche du relais sur le réseau local. |
 | `surveo-relay-core` | `crates/` | Moteur du relais, autonome ou embarqué dans la console (7.4). |
-| `surveo-platform` | `crates/` | Capacités par OS : capture d'écran, démarrage de session, proxy de l'utilisateur, applications de la session, dossiers. |
+| `surveo-platform` | `crates/` | Capacités par OS : capture d'écran, démarrage de session, proxy de l'utilisateur, applications de la session, fichiers de l'utilisateur (Documents, ouverture), dossiers. |
 | `surveo-agent` | `apps/agent/` | Agent du poste élève : un cœur sans interface (`lib`) et l'application Tauri (`main`). |
 | `surveo-console` | `apps/console/` | Console : un cœur sans interface (`lib`), l'application Tauri qui embarque le relais (`main`). |
 
@@ -286,8 +286,8 @@ avec l'étape 8 ; le moteur est déjà le même.
   il faut donc construire les interfaces avant de compiler les
   applications.
 - **Types partagés Rust ↔ TypeScript** : engendrés par `ts-rs` dans
-  `ui/shared/bindings/` (`cargo test -p surveo-console export_bindings`),
-  et versionnés.
+  `ui/shared/bindings/` (`cargo test export_bindings`, pour la console et
+  le panneau élève), et versionnés.
 - **Construction** : `scripts/build.sh` construit les interfaces, puis
   l'agent et la console pour Linux et pour Windows (compilés depuis
   Fedora, cible `x86_64-pc-windows-gnu`), et assemble dans `dist/` une
@@ -319,8 +319,8 @@ formalisée à l'étape 8 (INST-7).
 2. **Maîtrise** — fait ([2.2](#22-maîtrise-en-séance)) : écran en
    pause, filtrage web, fermeture d'application, mode examen, via
    `surveo-platform` (chap. 2).
-3. **Pédagogie** : modèles de TP, lancement et suivi, rendus,
-   distribution, sondages (chap. 3).
+3. **Pédagogie** — fait ([3.1](#31-pédagogie-en-séance)) : modèles de
+   TP, lancement et suivi, rendus, distribution, sondages (chap. 3).
 4. **Communication** : messages, conversation, demande d'aide, diffusion
    d'écran (chap. 4).
 5. **Rôles et confiance** : appairage, rôles, révocation, journal
@@ -364,6 +364,10 @@ s'éclaircira en avançant).
   engendrés par **ts-rs** ; messages de contrôle en **JSON** tant que le
   débit ne le remet pas en cause (les miniatures, seul flux important,
   sont en binaire).
+- 31 octobre 2026, à la tranche 3 : transferts de fichiers tirés par le
+  destinataire, morceau par morceau ; tailles maximales, retrait des
+  fichiers distribués modifiés, ouverture du panneau élève et sondage
+  unique confirmés par l'utilisateur (SPEC.md, 3.9).
 
 ### Questions ouvertes
 
@@ -372,6 +376,9 @@ s'éclaircira en avançant).
   justifie.
 - Report pendant une déconnexion : la courte file de messages de séance
   est-elle tenue par le relais ou seulement par la console responsable ?
+  Pour les restrictions, le TP, les fichiers et le sondage, la console
+  renvoie un état complet à la reconnexion (2.2, 3.1) ; reste la
+  question pour les messages du chapitre 4.
 - Chiffrement de bout en bout consoles ↔ postes : quelle portée en v1,
   et que doit encore voir le relais pour router (6.10, 8.12) ?
 - Ce qui arrive à la séance si la console responsable se ferme en cours
@@ -899,6 +906,247 @@ après le retour du poste.
   renvoi périodique possible si le cas se présente.
 - Plusieurs écrans : une fenêtre de pause par écran, non vérifié avec
   plusieurs écrans réels.
+
+## 3. Pédagogie
+
+### 3.1 Pédagogie en séance
+
+Troisième tranche de la phase 4 : l'enseignant prépare ses TP et ses
+sondages, les conduit en séance, distribue des fichiers et ramasse les
+rendus. Elle s'appuie sur les tranches 1 et 2. Version 0.3.0,
+protocole 3 : un agent 0.2 est refusé par la console avec le motif
+« version incompatible ».
+
+**Règles couvertes** : MODELE-1 à MODELE-4, MODELE-6 ; TP-1 à TP-9 ;
+RENDU-1 à RENDU-8 ; DISTRIB-1 à DISTRIB-8 ; SONDAGE-1 à SONDAGE-6 ;
+EXAM-4 ; ESPACE-1 (Préparer : modèles de TP et sondages), ESPACE-2,
+ESPACE-4 ; SEL-3 ; PANNEAU-1, PANNEAU-3 ; AGENT-3, AGENT-4 ; RETOUR-1,
+RETOUR-2, RETOUR-4 (remplacer un TP). Hors de la tranche : tout ce qui
+passe par l'IA (MODELE-5, action « aide de l'IA », SONDAGE-7), les noms
+d'élèves (ELEVE : rendus et réponses sont rangés par poste, ELEVE-3),
+le poste personnel (DISTRIB-9 et PEDA-1 sont prévus dans l'agent mais
+non éprouvés), le repli du panneau (PANNEAU-2), la vue liste et ses
+critères (« ceux qui n'ont pas rendu »), la conservation (chap. 8).
+
+**Transferts de fichiers** (`crates/surveo-protocol`,
+`crates/surveo-relay-core`). Un fichier est proposé (`FileOffer` :
+identifiant de l'envoi, nom, taille, empreinte SHA-256), puis tiré par
+son destinataire, un morceau de 256 Kio à la fois : `Fetch` demande un
+morceau, une trame binaire `Chunk` le porte. Le relais fait passer ces
+trames par la file des messages de contrôle, dans l'ordre et dans les
+deux sens (seules les miniatures gardent la file « la plus récente ») ;
+une console embarquée envoie les siennes par `LocalSender::send_binary`.
+Un morceau sans réponse au bout de 10 s est redemandé là où le transfert
+en était : les files bornées du relais ne débordent pas, et un transfert
+interrompu reprend. L'empreinte est vérifiée à l'arrivée. Tailles
+maximales : 50 Mo pour un rendu (RENDU-7), 200 Mo pour un fichier
+distribué ou joint.
+
+**Messages** (protocole 3) :
+
+| Sens | Messages |
+|---|---|
+| Console → postes | `Tp` (TP du poste ou aucun, avec ses étapes et ses fichiers joints), `Files` (tous les fichiers distribués au poste), `Poll` (sondage, la réponse connue du poste, les résultats montrés), `Fetch` (morceau d'un rendu), `Receipt` (rendu rangé, ou refusé avec son motif) |
+| Poste → consoles | `Status` porte en plus l'avancement dans le TP (étapes cochées, retard) et les fichiers reçus ; `Fetch` (morceau d'un fichier distribué), `Submit` (rendu à tirer), `Answer` (réponse au sondage) |
+| Binaire, dans les deux sens | `Chunk` : identifiant du fichier, position, données |
+
+Comme les restrictions, `Tp`, `Files` et `Poll` sont des états complets,
+renvoyés à chaque changement et à chaque reconnexion après `Session` :
+un poste qui rejoint la séance plus tard ou revient d'une coupure se
+remet à jour seul (TP-2, DISTRIB-4). La console garde donc l'état de la
+séance, le relais rien de plus (question ouverte « Report pendant une
+déconnexion » : tranchée ainsi pour ces messages).
+
+**La bibliothèque** (`apps/console/src/library.rs`) contient les modèles
+de TP (titre, étapes, rendus attendus, fichiers joints) et les sondages,
+dans `bibliotheque.json`. Les fichiers joints et distribués sont copiés
+dans le magasin de la console (`fichiers/`), nommés par leur empreinte ;
+le magasin est vidé de ce que plus rien ne désigne au démarrage et à la
+clôture. Un modèle ou un sondage s'exporte en un fichier `.surveo` (JSON,
+fichiers joints en base 64), qu'une autre console importe à l'identique,
+empreintes vérifiées (MODELE-4). Un sondage lancé en séance y est
+enregistré (SONDAGE-6).
+
+**La console** (`apps/console/src/engine/peda.rs`) :
+
+- TP : le lancer en fait une copie (TP-1), rangée avec la séance ; le TP
+  de chaque poste suit les deux couches de la tranche 2 (toute la salle,
+  sélection), si bien qu'un poste qui arrive reçoit le TP lancé sur toute
+  la séance (TP-2). Remplacer le TP d'un poste se confirme dans
+  l'interface (TP-4) ; l'arrêter (TP-9) lui envoie « aucun TP ». La
+  synthèse compte les postes à chaque étape, ceux qui ont tout fini, les
+  retards et les rendus complets (TP-8) ; un poste qui n'a encore rien
+  annoncé est compté à la première étape.
+- Distribution : chaque fichier distribué l'est à toute la séance ou à
+  des postes ; chaque poste reçoit la liste complète des siens et tire
+  ceux qui lui manquent. La console sait, par l'état des postes, lesquels
+  sont reçus (DISTRIB-4).
+- Rendus : un rendu proposé est tiré dans `reception/`, puis rangé dans
+  `<dossier des rendus>/<séance>/<TP>/<poste>` (RENDU-6) : dossier de la
+  séance « 2026-10-31 14h05 B204 », du TP par son titre, du poste
+  « poste 07 (PC-B204-07) » ; il est indexé dans `rendus.json`, puis
+  accusé (`Receipt`). Un même nom rendu de nouveau : la version
+  précédente est renommée « compte-rendu (14h20m05).odt », la plus récente
+  garde le nom (RENDU-5) ; le compteur de la tuile compte les noms. Un
+  rendu proposé de nouveau (accusé perdu) est accusé sans être rangé deux
+  fois. L'index garde les séances closes : un rendu déposé pendant la
+  séance et arrivé après est rangé quand même (RENDU-3, RENDU-8). Le
+  dossier des rendus est `Documents/Surveo/Rendus` (ou `DOSSIER/rendus`
+  avec `--dossier`) ; la console l'ouvre pour la séance ou pour un poste.
+- Sondage : un à la fois, sur toute la séance ou une sélection, avec une
+  durée limite facultative à laquelle la console le clôt (SONDAGE-4). Les
+  réponses, changeables tant qu'il est ouvert, vivent avec la séance et
+  disparaissent à sa clôture (CONSERV-1). Montrés aux élèves, les
+  résultats ne sont que des comptes par réponse (SONDAGE-5) ; le détail
+  par poste reste dans la console.
+
+**L'agent** (`apps/agent/src/peda.rs`) garde dans `peda.json` son TP
+(étapes cochées, début de l'étape en cours), ses rendus en attente et la
+liste des fichiers distribués qu'il a écrits :
+
+- TP : l'étape en cours est la première non cochée ; l'élève coche et
+  décoche (TP-6). Le même TP renvoyé après une coupure ou un redémarrage
+  garde ses étapes (TP-3). L'étape qui dépasse sa durée met le poste « en
+  retard » sans rien bloquer, et déclenche une fois son action : ouvrir
+  le panneau élève sur ses consignes (TP-7, MODELE-2).
+- Fichiers reçus : rangés dans `Documents/Surveo/Séance 2026-10-31
+  14h05` de l'élève, sous un nom libre (« cours (2).txt ») : rien n'est
+  écrasé (DISTRIB-2). Chaque chemin est noté avant l'écriture ; en fin de
+  séance, ces fichiers, et eux seuls, sont retirés d'un poste de salle,
+  puis le dossier s'il est vide (DISTRIB-6, DISTRIB-7) ; un fichier
+  distribué modifié par l'élève est retiré lui aussi (SPEC.md, 3.9). Au démarrage, ceux d'une séance dont l'échéance est
+  passée sont retirés ; ceux d'une séance encore en cours attendent de
+  savoir si le poste la rejoint, pour ne pas faire perdre son travail à
+  un élève dont le poste a redémarré. L'élève est prévenu de la
+  distribution (DISTRIB-3) et, cinq minutes avant la fin, du retrait
+  (DISTRIB-8).
+- Rendus : au dépôt, l'agent copie le fichier dans son dossier (le
+  fichier de l'élève reste en place, et ce qui est rendu est figé à
+  l'heure du dépôt), puis le propose ; sans connexion il attend, et part
+  au retour de la connexion, même après la séance (RENDU-3). Un rendu
+  sans nouvelles de la console est proposé de nouveau toutes les 30 s.
+  La zone de dépôt n'existe qu'avec un TP en cours dans la séance
+  (RENDU-8).
+- Sondage : la fenêtre du sondage s'impose au premier plan tant que
+  l'élève n'a ni répondu ni choisi « Répondre plus tard » (AGENT-4) ; une
+  réponse donnée pendant une coupure repart quand la console renvoie le
+  sondage sans elle.
+
+**Interface de la console** (`ui/console`) :
+
+- Espaces Préparer et Séance dans la barre du haut (ESPACE-1) ; dans
+  Préparer, un bandeau rappelle la séance en cours et y ramène
+  (ESPACE-4).
+- Préparer : modèles de TP (fiches, détail des étapes, modifier,
+  dupliquer, exporter, supprimer après confirmation, importer) et leur
+  éditeur (étapes ordonnées, consignes en Markdown avec aperçu, durée,
+  action en cas de dépassement, fichiers joints choisis par le dialogue
+  du système) ; sondages (question, réponses, choix unique ou multiple).
+- Barre d'actions de la séance : « Fichier », « TP », « Sondage » à côté
+  de « Pause » (SEL-3). Un fichier glissé du bureau sur le plan est
+  distribué aux postes visés, sur une tuile à ce poste (DISTRIB-1).
+- Panneau : synthèse de chaque TP (barres par étape, retards et
+  « Sélectionner les postes en retard », rendus complets, dossier des
+  rendus, « Arrêter le TP ») ; fichiers distribués et leur réception ;
+  sondage en direct (barres, taux de réponse, détail par poste, clore,
+  montrer aux élèves). Le récapitulatif de clôture ouvre les rendus.
+- Tuile : « Étape 2/3 · Rendus 1/2 », marques « en retard », « fichiers
+  en cours de réception », « a répondu au sondage » ; menu « Ouvrir ses
+  rendus ».
+- Les consignes en Markdown sont rendues par `ui/shared/markdown.ts` :
+  tout est échappé avant la mise en forme, et un lien s'ouvre dans le
+  navigateur du poste, jamais dans la fenêtre Surveo.
+
+**Interface de l'agent** (`ui/agent`) : le bouton « Surveo » de
+l'indicateur ouvre le panneau élève (AGENT-3), fenêtre ordinaire à
+droite de l'écran, qui s'ouvre aussi seule au lancement d'un TP, sans
+prendre le premier plan. Il montre le TP (étapes à cocher, consignes de
+l'étape en cours, temps indicatif restant ou dépassé, fichiers joints à
+ouvrir), la zone de dépôt (glisser un fichier sur la fenêtre, ou
+« Choisir un fichier… ») avec l'état de chaque rendu (« en attente
+d'envoi : la connexion avec l'enseignant est interrompue », « reçu par
+l'enseignant à 14:32 »), les fichiers reçus et leur dossier, le sondage
+et ses résultats, et à la fin le message de TP-9. Hors séance, il
+disparaît, sauf pour annoncer la fin du TP. Les fichiers s'ouvrent par
+l'application habituelle du poste (`surveo_platform::files::open_path`).
+
+**Tests** (`cargo test`, 91 dont 44 exports de types) : transferts
+(trames de morceaux, relais réel dans les deux sens, ordre conservé) ;
+fichiers (noms sûrs, jamais d'écrasement, empreintes) ; bibliothèque
+(modèle vérifié, dupliqué, exporté puis importé à l'identique sur une
+autre console, export abîmé refusé, ménage du magasin) ; console (TP
+lancé sur la salle puis reçu par un poste qui arrive, modèle modifié
+sans effet sur le TP lancé, remplacement et arrêt, synthèse ; rendus
+tirés en plusieurs morceaux, rangés par séance, TP et poste, versions,
+accusé perdu, trop volumineux, rendu arrivé après la clôture, reprise
+d'un transfert ; distribution ciblée puis à toute la séance, morceau
+servi, fichier non destiné ; sondage en direct, résultats sans nom,
+clôture à la durée limite) ; agent (étapes, retard et son action une
+seule fois, TP retrouvé après redémarrage, arrêt ; fichiers sans
+écrasement, avertissement de fin, retrait en fin de séance et au
+démarrage suivant d'un poste éteint ; rendu pendant une coupure puis
+après la fin de la séance, accusé seulement à la réception, zone de
+dépôt fermée ; refus d'un rendu trop gros ; sondage au premier plan,
+réponse renvoyée après une coupure) ; et la séance de bout en bout,
+étendue au TP avec un fichier joint de 600 Ko, à l'étape cochée vue de la
+console, à la distribution, au rendu, au sondage et au retrait des
+fichiers à la clôture.
+
+**Vérifié dans l'interface réelle** (31 octobre 2026, Fedora 44, écran X
+virtuel, console et deux agents sur le même poste, pilotés au clic) :
+modèle créé dans Préparer (consignes en Markdown et aperçu, durée d'une
+minute, consignes au dépassement, fichier joint de 700 Ko choisi par le
+dialogue) ; séance ouverte, TP lancé sur toute la salle : panneau élève
+ouvert seul, fichier joint reçu, tuiles « Étape 1/2 · Rendus 0/1 » ;
+étape cochée chez l'élève et vue aussitôt dans la console ; retard après
+une minute (tuile, synthèse, « temps indicatif dépassé » chez l'élève) ;
+rendu par « Choisir un fichier… », rangé dans « 2026-10-31 16h54 B204 /
+Adressage IPv4 / poste 01 (fixeolive) », accusé chez l'élève ;
+distribution par le dialogue, reçue sur 2/2, « cours (2).txt » à côté du
+« cours.txt » de l'élève ; sondage au premier plan, une réponse et un
+« plus tard », résultats en direct, détail par poste, résultats montrés
+sans nom ; « Ouvrir » un fichier reçu et « Ouvrir les rendus » ; clôture :
+fichiers distribués retirés, fichier de l'élève intact, dossier vide
+supprimé, « Séance terminée. Vos rendus envoyés ont bien été reçus. » ;
+console arrêtée brutalement pendant un TP, rendus déposés pendant la
+coupure (« en attente d'envoi »), console relancée : séance reprise,
+rendus arrivés seuls, deux versions gardées, accusés à ce moment-là ;
+agent redémarré en plein TP : étapes et rendus retrouvés, panneau non
+rouvert.
+
+**Éprouvé sous Windows** par l'utilisateur (31 octobre 2026) : la
+version 0.3.0 fonctionne.
+
+Cinq défauts trouvés ainsi et corrigés : les barres des résultats du
+sondage avaient une largeur nulle dans le panneau ; une réponse donnée
+dans la fenêtre du sondage n'était pas cochée dans le panneau élève ; la
+liste « Si dépassement » coupait « Afficher les consignes » ; le pied des
+tuiles coupait « Étape 1/2 » en deux ; la confirmation de clôture ne disait
+pas que les fichiers distribués seraient retirés.
+
+**Limites, à éprouver en salle**
+
+- Le glisser-déposer d'un fichier du bureau sur le plan de la console
+  n'a pas été éprouvé (pas de gestionnaire de fichiers dans l'écran
+  virtuel) ; le fichier est lu en mémoire par l'interface, 200 Mo au
+  plus.
+- Débit : un morceau à la fois par transfert. Sur le réseau local c'est
+  largement suffisant ; à mesurer avec un relais hébergé (latence), où
+  une fenêtre de quelques morceaux pourrait être utile. La console sert
+  tous les postes d'une distribution : 30 postes × 50 Mo, c'est 1,5 Go à
+  envoyer depuis le poste de l'enseignant.
+- Un élève peut retirer lui-même un fichier distribué ou le déplacer :
+  Surveo ne retire que les chemins qu'il a écrits. Un fichier distribué
+  modifié est retiré en fin de séance : l'élève en est prévenu cinq
+  minutes avant.
+- Sous Wayland, comme l'indicateur, le panneau et le sondage sont placés
+  par le bureau.
+- Dans l'environnement d'essai (bus D-Bus privé), l'agent met une
+  vingtaine de secondes à afficher ses fenêtres, le temps que le portail
+  du bureau, injoignable, ne réponde pas ; à vérifier sur une vraie
+  session.
+- Pas de conservation limitée des rendus (CONSERV-2, chap. 8) : ils
+  restent tant que l'enseignant ne les supprime pas.
 
 ## 5. IA
 

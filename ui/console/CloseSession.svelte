@@ -7,6 +7,8 @@
   let { onclose }: { onclose: () => void } = $props();
 
   const n = (ui.view!.room?.stations ?? []).filter((s) => s.state === 'in_session').length;
+  const s = ui.view!.session;
+  const files = !!s && (s.files.length > 0 || s.tps.length > 0);
 
   async function confirm() {
     if (await call('close_session')) {
@@ -20,7 +22,7 @@
   <p>
     {n === 0
       ? 'Aucun poste n’est dans la séance.'
-      : `Les ${n} poste${n > 1 ? 's' : ''} de la séance reviendront à leur état d'origine : écrans repris, filtrage web levé, applications de nouveau permises.`}
+      : `Les ${n} poste${n > 1 ? 's' : ''} de la séance reviendront à leur état d'origine : écrans repris, filtrage web levé, applications de nouveau permises${files ? ', fichiers distribués retirés' : ''}.`}
     Un poste injoignable y reviendra de lui-même.
   </p>
   <div class="row">

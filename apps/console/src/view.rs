@@ -2,6 +2,7 @@
 //! engendrés dans `ui/shared/bindings/` par
 //! `cargo test -p surveo-console export_bindings`.
 
+use crate::library::Library;
 use crate::store::{Lists, Pos};
 use serde::Serialize;
 use surveo_protocol::{DeployMode, OpenApp, PosteKind, ScreenState, WebPolicy, WebState};
@@ -26,6 +27,10 @@ pub struct ConsoleView {
     pub alerts: Vec<Alert>,
     /// Listes de sites et d'applications de l'enseignant (WEB-4, APP-4).
     pub lists: Lists,
+    /// Modèles de TP et sondages de l'enseignant (MODELE-3, SONDAGE-6).
+    pub library: Library,
+    /// Dossier où sont rangés les rendus (RENDU-6).
+    pub rendus_dir: String,
     pub limits: Limits,
 }
 
@@ -112,6 +117,98 @@ pub struct StationView {
     pub web_state: WebState,
     /// Applications ouvertes, si l'enseignant les a demandées (APP-1).
     pub apps: Option<Vec<OpenApp>>,
+    /// TP du poste et son avancement (TP-8).
+    pub tp: Option<StationTp>,
+    /// Fichiers distribués au poste, TP compris, et combien il en a reçus
+    /// (DISTRIB-4).
+    pub files_total: u32,
+    pub files_received: u32,
+    /// Le poste a répondu au sondage ouvert ; aucun : pas interrogé.
+    pub answered: Option<bool>,
+}
+
+/// TP d'un poste (TP-8).
+#[derive(Serialize, Clone, Debug, PartialEq, Eq, TS)]
+#[ts(export)]
+pub struct StationTp {
+    pub run: String,
+    pub title: String,
+    /// Étape en cours (la première non terminée) ; aucune : toutes faites.
+    pub step: Option<u32>,
+    pub steps: u32,
+    pub objective: Option<String>,
+    /// L'étape en cours dépasse sa durée (TP-7).
+    pub late: bool,
+    /// Rendus reçus, sur le nombre attendu (RENDU-4).
+    pub rendus: u32,
+    pub expected: u32,
+    /// Le poste a déjà annoncé son avancement.
+    pub known: bool,
+}
+
+/// Synthèse d'un TP en cours (TP-8).
+#[derive(Serialize, Clone, Debug, TS)]
+#[ts(export)]
+pub struct TpRunView {
+    pub id: String,
+    pub model: String,
+    pub title: String,
+    /// Objectif de chaque étape.
+    pub steps: Vec<String>,
+    pub expected: u32,
+    pub stations: u32,
+    /// Nombre de postes à chaque étape.
+    pub at_step: Vec<u32>,
+    /// Postes qui ont terminé toutes les étapes.
+    pub finished: u32,
+    pub late: u32,
+    /// Postes qui ont rendu au moins le nombre attendu.
+    pub complete: u32,
+    /// Lancé sur toute la séance (TP-2).
+    pub all: bool,
+}
+
+/// Fichier distribué dans la séance (DISTRIB-4).
+#[derive(Serialize, Clone, Debug, TS)]
+#[ts(export)]
+pub struct DistributionView {
+    pub id: String,
+    pub name: String,
+    #[ts(type = "number")]
+    pub size: u64,
+    pub all: bool,
+    pub targets: u32,
+    pub received: u32,
+    #[ts(type = "number")]
+    pub at_ms: u64,
+}
+
+/// Sondage de la séance, résultats en direct (SONDAGE-3).
+#[derive(Serialize, Clone, Debug, TS)]
+#[ts(export)]
+pub struct PollView {
+    pub id: String,
+    pub question: String,
+    pub options: Vec<String>,
+    pub multiple: bool,
+    pub open: bool,
+    pub shown: bool,
+    #[ts(type = "number | null")]
+    pub closes_at_ms: Option<u64>,
+    /// Nombre de choix de chaque réponse.
+    pub counts: Vec<u32>,
+    pub answered: u32,
+    pub targets: u32,
+    pub all: bool,
+    /// Réponse de chaque poste, pour l'enseignant seulement.
+    pub details: Vec<PollDetail>,
+}
+
+#[derive(Serialize, Clone, Debug, TS)]
+#[ts(export)]
+pub struct PollDetail {
+    pub station: String,
+    pub choices: Vec<u16>,
 }
 
 #[derive(Serialize, Clone, Debug, TS)]
@@ -136,6 +233,11 @@ pub struct SessionView {
     pub web_all: Option<WebPolicy>,
     pub apps_all: Vec<String>,
     pub exam: Option<ExamView>,
+    /// TP en cours, avec leur synthèse (TP-8).
+    pub tps: Vec<TpRunView>,
+    /// Fichiers distribués (DISTRIB-4).
+    pub files: Vec<DistributionView>,
+    pub poll: Option<PollView>,
 }
 
 /// Mode examen de la séance (EXAM-1).

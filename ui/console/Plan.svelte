@@ -2,10 +2,11 @@
   // Plan de la salle (SPEC.md, AFF-1, SALLE-2, SALLE-3) : une tuile par
   // poste, placée comme dans la salle réelle ; les nouveaux postes
   // attendent dans « postes à placer ». On place un poste en le glissant,
-  // ou au clavier : « Placer » puis la place choisie.
+  // ou au clavier : « Placer » puis la place choisie. Un fichier glissé
+  // sur le plan est distribué aux postes visés (DISTRIB-1).
   import Icon from '$shared/Icon.svelte';
   import type { StationView } from '$shared/bindings/StationView';
-  import { ui, call, type DialogKind } from './store.svelte';
+  import { ui, call, targets, distributeDropped, type DialogKind } from './store.svelte';
   import Tile from './Tile.svelte';
 
   let { show }: { show: (d: DialogKind) => void } = $props();
@@ -21,6 +22,25 @@
   const placingStation = $derived(room.stations.find((s) => s.member === ui.placing));
 
   let dragOver: string | null = $state(null);
+  let filesOver = $state(false);
+  const scopeText = $derived.by(() => {
+    const t = targets();
+    return t.all ? 'toute la salle' : `${t.stations.length} poste${t.stations.length > 1 ? 's' : ''} sélectionné${t.stations.length > 1 ? 's' : ''}`;
+  });
+
+  function overFiles(e: DragEvent) {
+    if (session && e.dataTransfer?.types.includes('Files')) {
+      e.preventDefault();
+      filesOver = true;
+    }
+  }
+
+  function dropFiles(e: DragEvent) {
+    filesOver = false;
+    if (!session || !e.dataTransfer?.files.length) return;
+    e.preventDefault();
+    distributeDropped(e.dataTransfer.files, targets().members);
+  }
 
   function placeAt(member: string, col: number, row: number) {
     ui.placing = null;
@@ -55,7 +75,8 @@
   }
 </script>
 
-<section class="stage" aria-label={`Salle ${room.name}`}>
+<section class="stage" aria-label={`Salle ${room.name}`} ondragover={overFiles} ondragleave={(e) => e.currentTarget === e.target && (filesOver = false)} ondrop={dropFiles}>
+  {#if filesOver}<div class="filedrop" aria-hidden="true">Déposez pour distribuer à {scopeText}, ou sur une tuile pour ce poste seul</div>{/if}
   <div class="stage-head">
     <b>{room.name}</b>
     <span class="hint">
@@ -142,6 +163,12 @@
   .stage {
     min-height: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; display: flex;
     flex-direction: column; box-shadow: var(--shadow); --tw: 150px;
+  }
+  .stage { position: relative; }
+  .filedrop {
+    position: absolute; inset: 8px; z-index: 5; pointer-events: none; border: 2px dashed var(--accent); border-radius: 10px;
+    display: flex; align-items: flex-start; justify-content: center; padding-top: 12px; color: var(--accent); font-weight: 700;
+    background: color-mix(in srgb, var(--accent-soft) 40%, transparent);
   }
   .stage-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
   .hint { font-size: 13px; color: var(--muted); }

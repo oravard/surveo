@@ -1,6 +1,6 @@
 [package]
 name = "surveo-platform"
-description = "Capacités propres à chaque système : capture d'écran, démarrage de session, proxy de l'utilisateur, applications, dossiers (IMPL.md, « Capacités par plateforme »)"
+description = "Capacités propres à chaque système : capture d'écran, démarrage de session, proxy de l'utilisateur, applications, fichiers de l'utilisateur, dossiers (IMPL.md, « Capacités par plateforme »)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,6 +13,7 @@ serde_json.workspace = true
 log = "0.4"
 fast_image_resize = "6"
 jpeg-encoder = "0.7"
+sha2.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 ashpd = { version = "0.13", default-features = false, features = ["tokio", "screencast"] }
@@ -27,4 +28,5 @@ winreg = "0.55"
 windows-sys = { version = "0.61", features = [
   "Win32_Foundation", "Win32_Networking_WinInet", "Win32_System_Memory", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Dwm",
   "Win32_Storage_FileSystem", "Win32_System_Diagnostics_ToolHelp", "Win32_System_RemoteDesktop", "Win32_System_Threading",
+  "Win32_UI_Shell",
 ] }

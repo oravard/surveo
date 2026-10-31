@@ -4248,9 +4248,10 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "surveo-agent"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "env_logger",
  "futures-util",
  "log",
@@ -4262,15 +4263,18 @@ dependencies = [
  "surveo-protocol",
  "tauri",
  "tauri-build",
+ "tauri-plugin-dialog",
  "tokio",
+ "ts-rs",
 ]
 
 [[package]]
 name = "surveo-console"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
+ "chrono",
  "env_logger",
  "log",
  "serde",
@@ -4290,7 +4294,7 @@ dependencies = [
 
 [[package]]
 name = "surveo-identity"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "ed25519-dalek",
@@ -4303,7 +4307,7 @@ dependencies = [
 
 [[package]]
 name = "surveo-net"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "futures-util",
@@ -4322,7 +4326,7 @@ dependencies = [
 
 [[package]]
 name = "surveo-platform"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "ashpd",
@@ -4333,6 +4337,7 @@ dependencies = [
  "pipewire",
  "serde",
  "serde_json",
+ "sha2",
  "tokio",
  "windows-sys 0.61.2",
  "winreg 0.55.0",
@@ -4342,7 +4347,7 @@ dependencies = [
 
 [[package]]
 name = "surveo-protocol"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -4351,7 +4356,7 @@ dependencies = [
 
 [[package]]
 name = "surveo-relay-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "bytes",

@@ -1,7 +1,7 @@
-Surveo {VERSION} — version d'essai « séance et maîtrise de la classe »
-=====================================================================
+Surveo {VERSION} — version d'essai « séance, maîtrise et pédagogie »
+====================================================================
 
-Cette version contient les deux premières tranches de Surveo :
+Cette version contient les trois premières tranches de Surveo :
   - la console de l'enseignant, avec son relais intégré (aucun serveur) ;
   - l'agent des postes élèves ;
   - le plan de la salle, les miniatures des écrans, l'ouverture, la
@@ -9,11 +9,14 @@ Cette version contient les deux premières tranches de Surveo :
     leur état d'origine ;
   - la maîtrise de la classe : écran en pause, filtrage web,
     applications interdites et fermeture d'une application, mode
-    examen.
+    examen ;
+  - la pédagogie : modèles de TP, suivi des étapes, rendus des élèves,
+    distribution de fichiers, sondages.
 
-Elle remplace la version « séance minimale » : installez-la à la fois
-sur la console et sur tous les postes. Un agent de l'ancienne version
-est refusé par la nouvelle console (« version incompatible »).
+Elle remplace la version « séance et maîtrise de la classe » :
+installez-la à la fois sur la console et sur tous les postes. Un agent
+de l'ancienne version est refusé par la nouvelle console (« version
+incompatible »). Les salles, les postes et les listes sont gardés.
 
 Elle fonctionne sur un réseau local, sans Internet. Les exécutables ne
 sont pas encore signés.
@@ -109,6 +112,33 @@ sont pas encore signés.
     tâches) : le web revient aussitôt sur le poste, et la console le
     signale ; au redémarrage, le poste revient à son réglage d'origine.
 
+  Pédagogie :
+  - « Préparer » (en haut à gauche) : créer un modèle de TP, avec ses
+    étapes (objectif, consignes en Markdown, durée indicative, et
+    « afficher les consignes » si elle est dépassée), le nombre de rendus
+    attendus et des fichiers joints. « Exporter… » puis « Importer… » sur
+    une autre console : le modèle arrive à l'identique.
+  - En séance, « TP » : lancer le modèle sur toute la salle ou sur des
+    postes sélectionnés. Chez l'élève, le panneau Surveo s'ouvre (on le
+    rouvre par le bouton « Surveo » de l'indicateur) : étapes à cocher,
+    consignes, temps indicatif, fichiers joints. La console montre
+    l'étape de chaque poste, les retards et le nombre de rendus.
+  - Rendre un fichier : le glisser sur le panneau élève, ou « Choisir un
+    fichier… ». L'élève voit « reçu par l'enseignant à … » seulement une
+    fois le fichier arrivé. Débrancher le réseau du poste, rendre un
+    fichier : « en attente d'envoi » ; le rebrancher : il part seul.
+  - Les rendus sont rangés côté enseignant par séance, TP et poste
+    (« Rendus » dans le panneau de la console). Un même nom rendu deux
+    fois : les deux versions sont gardées.
+  - « Fichier » (ou glisser un fichier sur le plan, ou sur une tuile) :
+    distribuer. Il arrive dans Documents/Surveo/Séance … de l'élève, sans
+    jamais écraser un fichier existant, et en est retiré à la fin de la
+    séance (y compris d'un poste éteint, à son redémarrage) ; l'élève en
+    est prévenu cinq minutes avant.
+  - « Sondage » : la question s'affiche au premier plan chez l'élève ;
+    résultats en direct dans le panneau de la console, à montrer aux
+    élèves sans aucun nom.
+
 
 4. Limites connues de cette version
 -----------------------------------
@@ -116,7 +146,8 @@ sont pas encore signés.
   - Postes de salle seulement (pas de poste personnel, pas de noms
     d'élèves) ; vue plan seulement.
   - Une seule console par établissement ; elle détient la clé de
-    l'établissement : la sauvegarder avec le dossier
+    l'établissement et la bibliothèque des TP : la sauvegarder avec le
+    dossier
       Windows : %LOCALAPPDATA%\Surveo\Console
       Linux   : ~/.local/share/surveo/console
   - Les postes trouvent la console par une recherche sur le réseau
@@ -128,7 +159,9 @@ sont pas encore signés.
     filtrage ne porte que sur les navigateurs qui suivent le réglage de
     proxy du système (sous Linux : réglage GNOME, à vérifier sous KDE et
     COSMIC) ; un élève averti peut quitter l'écran en pause (Alt+Tab).
-  - Windows : filtrage, fermeture d'application et écran en pause sont
-    compilés mais pas encore éprouvés ; c'est le premier essai à faire.
+  - Rendus et réponses aux sondages sont rangés par poste, faute de noms
+    d'élèves. Pas d'aide de l'IA dans les TP.
+  - Les rendus restent dans Documents/Surveo/Rendus de l'enseignant tant
+    qu'il ne les supprime pas.
   - Linux : l'agent et la console ont besoin des bibliothèques
     webkit2gtk-4.1 et pipewire (présentes sur Fedora, Ubuntu…).

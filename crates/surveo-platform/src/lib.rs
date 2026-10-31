@@ -1,13 +1,15 @@
 //! Capacités propres à chaque système (IMPL.md, « Capacités par
 //! plateforme ») : capture d'écran ([`capture`]), démarrage de session
 //! ([`autostart`]), proxy de l'utilisateur ([`proxy`]), applications de la
-//! session ([`apps`]), dossiers et description du poste.
+//! session ([`apps`]), fichiers de l'utilisateur ([`files`]), dossiers et
+//! description du poste.
 //!
 //! Tout fonctionne sans droits d'administration (SPEC.md, INST-6).
 
 pub mod apps;
 pub mod autostart;
 pub mod capture;
+pub mod files;
 pub mod proxy;
 mod thumb;
 

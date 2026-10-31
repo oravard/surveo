@@ -1,12 +1,13 @@
 <script lang="ts">
   // Tuile d'un poste (SPEC.md, AFF-2) : numéro, état toujours écrit en
-  // toutes lettres (ACCES-4), libellé, restrictions en cours, et l'image
-  // de l'écran quand l'enseignant affiche les écrans (AFF-4). Un clic
-  // sélectionne (SEL-1) ; le menu court porte les actions propres au
-  // poste (SEL-5).
+  // toutes lettres (ACCES-4), libellé, restrictions en cours, avancement
+  // dans le TP (TP-8), et l'image de l'écran quand l'enseignant affiche
+  // les écrans (AFF-4). Un clic sélectionne (SEL-1) ; le menu court porte
+  // les actions propres au poste (SEL-5). Un fichier glissé dessus lui est
+  // distribué (DISTRIB-1).
   import Icon from '$shared/Icon.svelte';
   import type { StationView } from '$shared/bindings/StationView';
-  import { ui, selection, thumbs, call } from './store.svelte';
+  import { ui, selection, thumbs, call, distributeDropped } from './store.svelte';
   import { outside } from './outside';
 
   let {
@@ -24,6 +25,23 @@
   } = $props();
 
   let menu = $state(false);
+  let fileOver = $state(false);
+
+  function dropFiles(e: DragEvent) {
+    if (!inSession || !e.dataTransfer?.files.length) return;
+    e.preventDefault();
+    e.stopPropagation();
+    fileOver = false;
+    distributeDropped(e.dataTransfer.files, [station.member]);
+  }
+
+  function overFiles(e: DragEvent) {
+    if (inSession && station.state === 'in_session' && e.dataTransfer?.types.includes('Files')) {
+      e.preventDefault();
+      e.stopPropagation();
+      fileOver = true;
+    }
+  }
 
   const selected = $derived(selection.has(station.member));
   const stateText = $derived(
@@ -40,13 +58,16 @@
 
   /** Restrictions en cours, avec leur icône et leur nom (ACCES-4). */
   const flags = $derived.by(() => {
-    const f: { icon: 'pause' | 'globe' | 'appx' | 'wifioff'; text: string; warn?: boolean }[] = [];
+    const f: { icon: 'pause' | 'globe' | 'appx' | 'wifioff' | 'clock' | 'file' | 'poll'; text: string; warn?: boolean }[] = [];
     if (station.state === 'off') return f;
+    if (station.tp?.late) f.push({ icon: 'clock', text: 'En retard sur l’étape', warn: true });
     if (station.pause !== null) f.push({ icon: 'pause', text: 'Écran en pause' });
     if (station.web_state.t === 'escaped') f.push({ icon: 'wifioff', text: 'Sorti du filtrage web', warn: true });
     else if (station.web_state.t === 'unavailable') f.push({ icon: 'wifioff', text: `Filtrage impossible : ${station.web_state.reason}`, warn: true });
     else if (station.web !== null) f.push({ icon: 'globe', text: 'Filtrage web' });
     if (station.banned_apps.length) f.push({ icon: 'appx', text: `Applications interdites : ${station.banned_apps.join(', ')}` });
+    if (station.files_received < station.files_total) f.push({ icon: 'file', text: `Fichiers en cours de réception (${station.files_received}/${station.files_total})` });
+    if (station.answered) f.push({ icon: 'poll', text: 'A répondu au sondage' });
     return f;
   });
 
@@ -74,7 +95,11 @@
     class="tile st-{station.state}"
     class:sel={selected}
     class:paused={station.pause !== null}
+    class:fileover={fileOver}
     aria-pressed={selected}
+    ondragover={overFiles}
+    ondragleave={() => (fileOver = false)}
+    ondrop={dropFiles}
     draggable="true"
     {ondragstart}
     onclick={click}
@@ -95,6 +120,12 @@
       <Icon name={station.state === 'off' ? 'power' : station.state === 'in_session' ? 'check' : 'minus'} size={13} />
       {stateText}
     </span>
+    {#if station.tp && station.state !== 'off'}
+      <span class="t-foot mono" title={station.tp.objective ? `Étape en cours : ${station.tp.objective}` : 'Toutes les étapes sont terminées'}>
+        <span>{station.tp.step === null ? 'Terminé' : `Étape ${station.tp.step + 1}/${station.tp.steps}`}</span>
+        {#if station.tp.expected}<span>Rendus {station.tp.rendus}/{station.tp.expected}</span>{/if}
+      </span>
+    {/if}
     {#if showScreen}
       {#if station.screen.t === 'unavailable'}
         <span class="masked"><Icon name="eyeoff" size={14} />Écran non visible : {station.screen.reason}</span>
@@ -116,6 +147,9 @@
           <Icon name={station.pause === null ? 'pause' : 'play'} size={15} />{station.pause === null ? 'Mettre en pause' : 'Reprendre l’écran'}
         </button>
         <button role="menuitem" data-pop-toggle onclick={openApps}><Icon name="appx" size={15} />Applications ouvertes…</button>
+      {/if}
+      {#if station.tp}
+        <button role="menuitem" onclick={() => { menu = false; call('open_rendus', { member: station.member }); }}><Icon name="folder" size={15} />Ouvrir ses rendus</button>
       {/if}
       <button role="menuitem" onclick={identify} disabled={station.state === 'off'}><Icon name="target" size={15} />Identifier</button>
       <button role="menuitem" onclick={() => { menu = false; ui.placing = station.member; }}><Icon name="room" size={15} />Déplacer</button>
@@ -144,6 +178,9 @@
   .tile.paused { background: repeating-linear-gradient(135deg, var(--restrict-soft) 0 7px, var(--surface) 7px 14px); }
   .tile.sel.paused { background: repeating-linear-gradient(135deg, var(--restrict-soft) 0 7px, var(--accent-soft) 7px 14px); }
   .st-off .t-num { color: var(--muted); }
+  .tile.fileover { border-color: var(--accent); background: var(--accent-soft); }
+  .t-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 6px; font-size: 11px; color: var(--muted); }
+  .t-foot span { white-space: nowrap; }
   .t-state { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; margin-top: auto; }
   .st-in_session .t-state { color: var(--ok); }
   .t-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 14px; }

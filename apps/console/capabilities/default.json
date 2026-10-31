@@ -2,5 +2,5 @@
   "identifier": "default",
   "description": "Fenêtre principale de la console",
   "windows": ["main"],
-  "permissions": ["core:default", "dialog:allow-save"]
+  "permissions": ["core:default", "dialog:allow-save", "dialog:allow-open"]
 }

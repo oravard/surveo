@@ -1,7 +1,8 @@
 <script lang="ts">
   // « Sélectionner, puis agir » (SPEC.md, SEL-1 à SEL-3) : sans
   // sélection, l'action porte sur toute la salle, et la barre le dit. Les
-  // actions courantes sont visibles, les autres sous « Plus ».
+  // actions courantes sont visibles (pause, fichier, TP, sondage), les
+  // autres sous « Plus ».
   import Icon from '$shared/Icon.svelte';
   import { ui, selection, call, targets, type PopKind } from './store.svelte';
   import PausePop from './PausePop.svelte';
@@ -9,6 +10,9 @@
   import AppsPop from './AppsPop.svelte';
   import OpenAppsPop from './OpenAppsPop.svelte';
   import ExamPop from './ExamPop.svelte';
+  import TpPop from './TpPop.svelte';
+  import FilePop from './FilePop.svelte';
+  import PollPop from './PollPop.svelte';
   import { outside } from './outside';
 
   const room = $derived(ui.view!.room!);
@@ -57,6 +61,9 @@
         title={allPaused ? 'Reprendre l’écran des postes' : 'Mettre l’écran des postes en pause'}>
         <Icon name={allPaused ? 'play' : 'pause'} />{allPaused ? 'Reprendre' : 'Pause'}
       </button>
+      <button class="bbtn" data-pop-toggle onclick={() => toggle('file')} aria-expanded={pop === 'file'} title="Distribuer des fichiers"><Icon name="file" />Fichier</button>
+      <button class="bbtn" data-pop-toggle onclick={() => toggle('tp')} aria-expanded={pop === 'tp'} title="Lancer un TP"><Icon name="list" />TP</button>
+      <button class="bbtn" data-pop-toggle onclick={() => toggle('poll')} aria-expanded={pop === 'poll'} title="Lancer un sondage"><Icon name="poll" />Sondage</button>
     {/if}
     <button class="bbtn" data-pop-toggle onclick={() => toggle('more')} aria-expanded={pop === 'more'}><Icon name="more" />Plus</button>
   </div>
@@ -70,6 +77,12 @@
     <OpenAppsPop station={one} onclose={close} />
   {:else if pop === 'exam' && session}
     <ExamPop onclose={close} />
+  {:else if pop === 'tp' && session}
+    <TpPop members={t.members} stations={t.stations} {scope} onclose={close} />
+  {:else if pop === 'file' && session}
+    <FilePop members={t.members} {scope} onclose={close} />
+  {:else if pop === 'poll' && session}
+    <PollPop members={t.members} {scope} onclose={close} />
   {:else if pop === 'more'}
     <div class="menu" role="menu" use:outside={close} onkeydown={(e) => e.key === 'Escape' && close()} tabindex="-1">
       {#if session}

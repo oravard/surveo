@@ -82,6 +82,38 @@ async fn routes_between_members_of_one_establishment() {
         }
     }
 
+    // Morceaux de fichier : tous remis, dans l'ordre, dans les deux sens,
+    // contrairement aux miniatures.
+    for i in 0..20u64 {
+        let c = encode_chunk("rendu-1", i, &[i as u8]);
+        ws.send(WsMessage::Binary(encode_agent_frame(BinKind::Chunk, &c).into())).await.unwrap();
+    }
+    for i in 0..20u64 {
+        match tokio::time::timeout(Duration::from_secs(5), console.frames.recv()).await.unwrap().unwrap() {
+            Frame::Binary(b) => {
+                let (kind, member, payload) = decode_console_frame(&b).unwrap();
+                assert_eq!((kind, member), (BinKind::Chunk, "poste-1"));
+                assert_eq!(decode_chunk(payload), Some(("rendu-1", i, &[i as u8][..])));
+            }
+            Frame::Text(t) => panic!("inattendu : {t}"),
+        }
+    }
+    for i in 0..20u64 {
+        console.sender.send_binary(&encode_console_frame(BinKind::Chunk, "poste-1", &encode_chunk("tp-1", i, b"x")));
+    }
+    // Une console ne fait pas passer de miniature vers un poste.
+    console.sender.send_binary(&encode_console_frame(BinKind::Thumbnail, "poste-1", b"jpeg"));
+    for i in 0..20u64 {
+        match tokio::time::timeout(Duration::from_secs(5), ws.next()).await.unwrap().unwrap().unwrap() {
+            WsMessage::Binary(b) => {
+                let (kind, payload) = decode_agent_frame(&b).unwrap();
+                assert_eq!(kind, BinKind::Chunk);
+                assert_eq!(decode_chunk(payload), Some(("tp-1", i, &b"x"[..])));
+            }
+            other => panic!("inattendu : {other:?}"),
+        }
+    }
+
     // Le poste se reconnecte : l'ancienne connexion est remplacée, sans
     // annonce de départ.
     let (mut ws2, _) = handshake::connect(&addr, &agent, &trust, Some(&info("PC-01"))).await.unwrap();

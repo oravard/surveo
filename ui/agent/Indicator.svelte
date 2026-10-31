@@ -2,7 +2,7 @@
   // Indicateur de séance (SPEC.md, REJ-4, AGENT-2) : toujours visible
   // pendant la séance ; l'élève peut le réduire ou le déplacer, pas le
   // fermer. Il énonce les restrictions en cours (MAIT-1) et le mode
-  // examen (EXAM-1).
+  // examen (EXAM-1), et ouvre le panneau élève (AGENT-3).
   import { invoke } from '@tauri-apps/api/core';
   import { listen } from '@tauri-apps/api/event';
   import Icon from '$shared/Icon.svelte';
@@ -49,6 +49,9 @@
         </span>
       {/if}
     {/if}
+    <button type="button" class="panel" onclick={() => invoke('show_panel')} title="TP, fichiers reçus, sondage">
+      {#if compact}<Icon name="list" size={16} /><span class="sr">Ouvrir le panneau Surveo</span>{:else}Surveo{/if}
+    </button>
     <button type="button" onclick={toggle} aria-label={compact ? 'Agrandir l’indicateur' : 'Réduire l’indicateur'} title={compact ? 'Agrandir' : 'Réduire'}>
       <Icon name={compact ? 'plus' : 'minus'} size={16} />
     </button>
@@ -75,6 +78,7 @@
   .text :global(.ic) { vertical-align: -2px; }
   .items { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--bar-muted); padding: 0 0 4px 18px; overflow: hidden; }
   .items span { overflow: hidden; text-overflow: ellipsis; }
+  button.panel { width: auto; padding: 0 10px; font-weight: 700; font-size: 13.5px; }
   button {
     border: 0; background: var(--bar-2); color: var(--bar-ink); border-radius: 7px; width: 30px; height: 30px;
     display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex: none;

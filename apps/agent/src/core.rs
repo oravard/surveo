@@ -6,13 +6,16 @@
 //! lui-même ensuite (RESTR-1, RESTR-2). Au démarrage, il est toujours hors
 //! séance (RESTR-3, DEMAR-2) ; la console le relie à la séance ouverte de
 //! sa salle dès qu'il se connecte (REJ-1), et lui renvoie ses restrictions
-//! ([`crate::restrict`]).
+//! ([`crate::restrict`]), son TP, ses fichiers et le sondage
+//! ([`crate::peda`]).
 
+use crate::peda::{PanelView, Peda};
 use crate::restrict::{Restrictor, RestrictionsView};
 use crate::setup;
 use anyhow::{anyhow, Result};
 use futures_util::{SinkExt, StreamExt};
-use std::path::PathBuf;
+use std::future::Future;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use surveo_identity::{Identity, Package, Trust};
@@ -54,8 +57,14 @@ pub trait Ui: Send + Sync + 'static {
     /// (ECRAN-1, ECRAN-2).
     fn pause(&self, message: Option<&str>) -> Result<(), String>;
     /// Notification discrète à l'élève (AGENT-4) : site bloqué,
-    /// application fermée.
+    /// application fermée, fichier reçu.
     fn notify(&self, text: &str);
+    /// Contenu à jour du panneau élève (AGENT-3) et du sondage au premier
+    /// plan (SONDAGE-2).
+    fn panel(&self, _v: &PanelView) {}
+    /// Ouvrir le panneau élève, sans prendre le premier plan : lancement
+    /// d'un TP, consignes d'une étape en retard (MODELE-2), fin du TP.
+    fn show_panel(&self) {}
 }
 
 pub struct AgentSetup {
@@ -69,6 +78,9 @@ pub struct AgentSetup {
     pub discovery_port: u16,
     /// Réglage du proxy de l'utilisateur (simulé pour les essais).
     pub proxy: Arc<dyn UserProxy>,
+    /// Dossier Surveo de l'élève, où arrivent les fichiers distribués
+    /// (DISTRIB-2).
+    pub files_dir: PathBuf,
 }
 
 impl AgentSetup {
@@ -80,7 +92,43 @@ impl AgentSetup {
             kind: package.kind,
             mode: DeployMode::SansAdmin,
         };
-        Self { dir, package, identity, info, synthetic_screen: None, discovery_port: DISCOVERY_PORT, proxy: Arc::new(SystemProxy) }
+        let files_dir = surveo_platform::files::documents_dir().join("Surveo");
+        Self { dir, package, identity, info, synthetic_screen: None, discovery_port: DISCOVERY_PORT, proxy: Arc::new(SystemProxy), files_dir }
+    }
+}
+
+/// Ce que l'élève fait depuis le panneau élève (AGENT-3).
+#[derive(Clone)]
+pub struct Student(Arc<Mutex<Peda>>);
+
+impl Student {
+    pub fn view(&self) -> PanelView {
+        self.0.lock().unwrap().view(now_ms())
+    }
+
+    pub fn set_step(&self, step: u16, done: bool) {
+        self.0.lock().unwrap().set_step(step, done, now_ms());
+    }
+
+    /// Dépose un rendu ; rend le refus, en mots simples (RENDU-7, RENDU-8).
+    pub fn submit(&self, path: &Path) -> Result<(), String> {
+        crate::peda::submit(&self.0, path, now_ms)
+    }
+
+    pub fn answer(&self, choices: Vec<u16>) {
+        self.0.lock().unwrap().answer(choices, now_ms());
+    }
+
+    pub fn dismiss_poll(&self) {
+        self.0.lock().unwrap().dismiss_poll(now_ms());
+    }
+
+    pub fn file_path(&self, id: &str) -> Option<PathBuf> {
+        self.0.lock().unwrap().file_path(id)
+    }
+
+    pub fn folder(&self) -> Option<PathBuf> {
+        self.0.lock().unwrap().folder()
     }
 }
 
@@ -106,46 +154,74 @@ struct Agent {
     frames_tx: mpsc::Sender<(u64, CaptureEvent)>,
     frames_rx: mpsc::Receiver<(u64, CaptureEvent)>,
     restrictor: Arc<Mutex<Restrictor>>,
+    peda: Arc<Mutex<Peda>>,
+    /// Messages du TP, des rendus et du sondage à envoyer.
+    peda_rx: mpsc::UnboundedReceiver<AgentMsg>,
     /// Signale un changement de l'état annoncé, trouvé par les
-    /// vérifications périodiques.
+    /// vérifications périodiques ou venu de l'élève.
     changes_rx: mpsc::Receiver<()>,
+}
+
+/// Réponse du poste à une commande.
+enum Reply {
+    Msg(AgentMsg),
+    /// Morceau d'un rendu ([`Command::Fetch`]).
+    Chunk(Vec<u8>),
+}
+
+/// Prépare l'agent : rend la poignée du panneau élève, et la tâche qui
+/// fait tourner l'agent indéfiniment.
+pub fn prepare(setup: AgentSetup, ui: Arc<dyn Ui>) -> Result<(Student, impl Future<Output = Result<()>> + Send)> {
+    let trust = Trust::new(setup.package.etab.clone())?;
+    // Retour à l'état d'origine avant toute connexion (DEMAR-2) ; les
+    // fichiers distribués d'une séance finie sont retirés (DISTRIB-6).
+    crate::restrict::restore_leftovers(&setup.dir, setup.proxy.as_ref());
+    let (changes_tx, changes_rx) = mpsc::channel(4);
+    let (peda_tx, peda_rx) = mpsc::unbounded_channel();
+    let peda = Peda::new(ui.clone(), setup.dir.clone(), setup.files_dir.clone(), setup.info.kind, peda_tx, changes_tx.clone(), now_ms());
+    let peda = Arc::new(Mutex::new(peda));
+    let restrictor = Arc::new(Mutex::new(Restrictor::new(ui.clone(), setup.dir.clone(), setup.proxy.clone())));
+    let student = Student(peda.clone());
+    let run = async move {
+        let (frames_tx, frames_rx) = mpsc::channel(2);
+        {
+            let (r, p) = (restrictor.clone(), peda.clone());
+            tokio::spawn(async move {
+                let mut every = tokio::time::interval(CHECK_PERIOD);
+                loop {
+                    every.tick().await;
+                    let restricted = r.lock().unwrap().tick();
+                    let taught = p.lock().unwrap().tick(now_ms());
+                    if restricted || taught {
+                        let _ = changes_tx.try_send(());
+                    }
+                }
+            });
+        }
+        let mut agent = Agent {
+            setup,
+            trust,
+            ui,
+            session: None,
+            screens: false,
+            capture: None,
+            generation: 0,
+            screen: ScreenState::Off,
+            frames_tx,
+            frames_rx,
+            restrictor,
+            peda,
+            peda_rx,
+            changes_rx,
+        };
+        agent.run().await
+    };
+    Ok((student, run))
 }
 
 /// Fait tourner l'agent indéfiniment.
 pub async fn run(setup: AgentSetup, ui: Arc<dyn Ui>) -> Result<()> {
-    let trust = Trust::new(setup.package.etab.clone())?;
-    let (frames_tx, frames_rx) = mpsc::channel(2);
-    // Retour à l'état d'origine avant toute connexion (DEMAR-2).
-    crate::restrict::restore_leftovers(&setup.dir, setup.proxy.as_ref());
-    let restrictor = Arc::new(Mutex::new(Restrictor::new(ui.clone(), setup.dir.clone(), setup.proxy.clone())));
-    let (changes_tx, changes_rx) = mpsc::channel(4);
-    {
-        let r = restrictor.clone();
-        tokio::spawn(async move {
-            let mut every = tokio::time::interval(CHECK_PERIOD);
-            loop {
-                every.tick().await;
-                if r.lock().unwrap().tick() {
-                    let _ = changes_tx.try_send(());
-                }
-            }
-        });
-    }
-    let mut agent = Agent {
-        setup,
-        trust,
-        ui,
-        session: None,
-        screens: false,
-        capture: None,
-        generation: 0,
-        screen: ScreenState::Off,
-        frames_tx,
-        frames_rx,
-        restrictor,
-        changes_rx,
-    };
-    agent.run().await
+    prepare(setup, ui)?.1.await
 }
 
 fn now_ms() -> u64 {
@@ -167,6 +243,7 @@ impl Agent {
                     if let Err(e) = self.serve(ws).await {
                         log::info!("connexion au relais perdue : {e:#}");
                     }
+                    self.peda.lock().unwrap().set_connected(false, now_ms());
                     self.stop_capture();
                 }
                 Err(e) => {
@@ -236,7 +313,13 @@ impl Agent {
         if self.session.is_some() && self.screens {
             self.start_capture();
         }
+        // Ce qui attendait pendant la coupure est reconstitué à neuf.
+        while self.peda_rx.try_recv().is_ok() {}
         send(&mut sink, &self.status()).await?;
+        let resume = self.peda.lock().unwrap().set_connected(true, now_ms());
+        for m in resume {
+            send(&mut sink, &m).await?;
+        }
         loop {
             let deadline = self.deadline();
             tokio::select! {
@@ -247,14 +330,28 @@ impl Agent {
                         Ok(None) => return Err(anyhow!("connexion fermée par le relais")),
                         Err(_) => return Err(anyhow!("plus de nouvelles du relais")),
                     };
-                    let WsMessage::Text(t) = msg else { continue };
+                    let t = match msg {
+                        WsMessage::Text(t) => t,
+                        WsMessage::Binary(b) => {
+                            // Morceau d'un fichier distribué (DISTRIB-4).
+                            if let Some((BinKind::Chunk, payload)) = decode_agent_frame(&b) {
+                                if let Some((file, offset, data)) = decode_chunk(payload) {
+                                    self.peda.lock().unwrap().chunk(file, offset, data, now_ms());
+                                }
+                            }
+                            continue;
+                        }
+                        _ => continue,
+                    };
                     let Ok(ToAgent::Command { id, cmd, .. }) = serde_json::from_str::<ToAgent>(t.as_str()) else {
                         log::debug!("message illisible : {t}");
                         continue;
                     };
                     let before = self.status();
-                    let reply = self.handle(id, cmd);
-                    send(&mut sink, &reply).await?;
+                    match self.handle(id, cmd) {
+                        Reply::Msg(m) => send(&mut sink, &m).await?,
+                        Reply::Chunk(c) => sink.send(WsMessage::Binary(encode_agent_frame(BinKind::Chunk, &c).into())).await?,
+                    }
                     let after = self.status();
                     if after != before {
                         send(&mut sink, &after).await?;
@@ -286,26 +383,40 @@ impl Agent {
                 Some(()) = self.changes_rx.recv() => {
                     send(&mut sink, &self.status()).await?;
                 }
+                Some(m) = self.peda_rx.recv() => {
+                    send(&mut sink, &m).await?;
+                }
             }
         }
     }
 
     fn status(&self) -> AgentMsg {
+        let p = self.peda.lock().unwrap();
         AgentMsg::Status {
             session: self.session.as_ref().map(|s| s.info.id.clone()),
             screen: self.screen.clone(),
             web: self.restrictor.lock().unwrap().web_state(),
+            tp: p.progress(now_ms()),
+            files: p.received_ids(),
         }
+    }
+
+    fn in_session(&self, session: &str) -> bool {
+        self.session.as_ref().is_some_and(|s| s.info.id == session)
     }
 
     /// Exécute une commande ; rend la réponse, en général l'acquittement
     /// (RETOUR-1).
-    fn handle(&mut self, id: u64, cmd: Command) -> AgentMsg {
+    fn handle(&mut self, id: u64, cmd: Command) -> Reply {
         let (ok, detail) = match cmd {
-            Command::ListApps => return AgentMsg::Apps { id, apps: self.restrictor.lock().unwrap().list_apps() },
+            Command::ListApps => return Reply::Msg(AgentMsg::Apps { id, apps: self.restrictor.lock().unwrap().list_apps() }),
+            Command::Fetch { file, offset, len } => match self.peda.lock().unwrap().rendu_chunk(&file, offset, len, now_ms()) {
+                Some(c) => return Reply::Chunk(c),
+                None => (false, Some("rendu inconnu".into())),
+            },
             cmd => self.execute(cmd),
         };
-        AgentMsg::Ack { id, ok, detail }
+        Reply::Msg(AgentMsg::Ack { id, ok, detail })
     }
 
     fn execute(&mut self, cmd: Command) -> (bool, Option<String>) {
@@ -358,7 +469,25 @@ impl Agent {
                     Err(e) => (false, Some(e)),
                 }
             }
-            Command::ListApps => unreachable!("traitée par handle"),
+            Command::Tp { session, tp } if self.in_session(&session) => {
+                self.peda.lock().unwrap().set_tp(tp, now_ms());
+                (true, None)
+            }
+            Command::Files { session, files } if self.in_session(&session) => {
+                self.peda.lock().unwrap().set_files(files, now_ms());
+                (true, None)
+            }
+            Command::Poll { session, poll } if self.in_session(&session) => {
+                self.peda.lock().unwrap().set_poll(poll, now_ms());
+                (true, None)
+            }
+            Command::Tp { .. } | Command::Files { .. } | Command::Poll { .. } => (false, Some("hors séance".into())),
+            // Un rendu reçu après la séance est accusé quand même (RENDU-3).
+            Command::Receipt { rendu, error } => {
+                self.peda.lock().unwrap().receipt(&rendu, error, now_ms());
+                (true, None)
+            }
+            Command::ListApps | Command::Fetch { .. } => unreachable!("traitée par handle"),
         }
     }
 
@@ -384,6 +513,7 @@ impl Agent {
             self.ui.session(Some(&view));
         }
         self.restrictor.lock().unwrap().begin(&info.teacher);
+        self.peda.lock().unwrap().begin(&info, now_ms());
         self.session = Some(Active { info, deadline, view });
     }
 
@@ -392,6 +522,7 @@ impl Agent {
     /// poste revient à son état d'origine.
     fn leave_session(&mut self) {
         self.restrictor.lock().unwrap().clear();
+        self.peda.lock().unwrap().end(now_ms());
         if let Some(s) = self.session.take() {
             log::info!("séance {} quittée : poste dans son état d'origine", s.info.id);
         }

@@ -1,6 +1,7 @@
 <script lang="ts">
-  // Barre du haut : salle choisie (SALLE-1) et conduite de la séance :
-  // ouvrir, prolonger, clôturer (SEANCE-1, SEANCE-3, SEANCE-5).
+  // Barre du haut : espaces Préparer et Séance (ESPACE-1), salle choisie
+  // (SALLE-1) et conduite de la séance : ouvrir, prolonger, clôturer
+  // (SEANCE-1, SEANCE-3, SEANCE-5).
   import Icon from '$shared/Icon.svelte';
   import { hhmm, duration } from '$shared/time';
   import { ui, call, toast, type DialogKind } from './store.svelte';
@@ -37,6 +38,10 @@
 
 <header class="topbar">
   <span class="brand"><span class="mark" aria-hidden="true"></span>Surveo</span>
+  <nav class="seg" aria-label="Espaces">
+    <button type="button" aria-pressed={ui.space === 'preparer'} onclick={() => (ui.space = 'preparer')}><Icon name="book" size={16} />Préparer</button>
+    <button type="button" aria-pressed={ui.space === 'seance'} onclick={() => (ui.space = 'seance')}><Icon name="room" size={16} />Séance</button>
+  </nav>
   <label class="room">
     <Icon name="room" />
     <span class="sr">Salle</span>
@@ -78,6 +83,12 @@
   .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; }
   .mark { width: 22px; height: 22px; border-radius: 6px; background: var(--accent); position: relative; }
   .mark::after { content: ''; position: absolute; inset: 6px 6px 9px 6px; border: 2px solid var(--accent-ink); border-radius: 2px; }
+  .seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px; padding: 2px; gap: 2px; }
+  .seg button {
+    border: 0; background: transparent; border-radius: 7px; padding: 5px 10px; display: inline-flex; align-items: center; gap: 6px;
+    cursor: pointer; font-weight: 700; color: var(--muted); font-size: 14px;
+  }
+  .seg button[aria-pressed='true'] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
   .room { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
   .room select {
     border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; background: var(--surface-2); color: var(--ink);

@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Fenêtres de l'agent : indicateur de séance, identification, écran en pause, notification, erreur de démarrage",
-  "windows": ["indicator", "identify", "pause-*", "notice", "error"],
+  "description": "Fenêtres de l'agent : indicateur de séance, identification, écran en pause, notification, panneau élève, sondage, erreur de démarrage",
+  "windows": ["indicator", "identify", "pause-*", "notice", "panel", "poll", "error"],
   "permissions": ["core:default", "core:window:allow-start-dragging"]
 }

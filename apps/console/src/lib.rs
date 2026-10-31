@@ -1,7 +1,10 @@
 //! Cœur de la console de l'enseignant (IMPL.md, « Architecture »),
 //! indépendant de l'interface :
-//! - [`store`] : fichiers de la console (établissement, salles, séance) ;
-//! - [`engine`] : salles et plans, séance, retours poste par poste ;
+//! - [`store`] : fichiers de la console (établissement, salles, séance,
+//!   bibliothèque, rendus) ;
+//! - [`library`] : modèles de TP et sondages, export et import ;
+//! - [`engine`] : salles et plans, séance, restrictions, pédagogie,
+//!   retours poste par poste ;
 //! - [`view`] : ce que l'interface affiche, avec ses types TypeScript.
 //!
 //! La console qui a ouvert la séance en tient l'état de référence ; un
@@ -9,6 +12,7 @@
 //! et stockage »).
 
 pub mod engine;
+pub mod library;
 pub mod store;
 pub mod view;
 
@@ -27,6 +31,9 @@ pub const EXTEND_STEP_MS: u64 = 15 * 60_000;
 pub const ACK_TIMEOUT_MS: u64 = 5_000;
 /// Durée d'affichage du numéro d'un poste (SALLE-4).
 pub const IDENTIFY_SECONDS: u32 = 6;
+/// Sans morceau reçu pendant ce délai, un rendu en cours de réception est
+/// redemandé là où il en était (IMPL.md, 3.1).
+pub const FETCH_TIMEOUT_MS: u64 = 10_000;
 
 pub fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)

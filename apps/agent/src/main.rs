@@ -1,8 +1,9 @@
 //! Agent Surveo du poste élève : application sans fenêtre hors séance
 //! (SPEC.md, AGENT-1), qui affiche l'indicateur de séance (REJ-4,
 //! AGENT-2) et les restrictions en cours (MAIT-1), le numéro
-//! d'identification (SALLE-4), l'écran en pause (ECRAN-1) et les
-//! notifications à l'élève (AGENT-4).
+//! d'identification (SALLE-4), l'écran en pause (ECRAN-1), les
+//! notifications à l'élève (AGENT-4), le panneau élève (AGENT-3) et le
+//! sondage au premier plan (SONDAGE-2).
 //!
 //! Usage : surveo-agent [--sur-place] [--dossier DOSSIER]
 //!                      [--ecran-factice N] [--desinstaller]
@@ -11,8 +12,10 @@
 //! l'agent s'installe dans le compte de l'utilisateur, s'inscrit au
 //! démarrage de session et se relance depuis là (INST-1, INST-3).
 //! `--sur-place` le fait tourner sans l'installer ; `--dossier` change
-//! son dossier (plusieurs agents sur un même poste, pour les essais) ;
-//! `--ecran-factice` envoie des miniatures de démonstration.
+//! son dossier (plusieurs agents sur un même poste, pour les essais), et
+//! les fichiers distribués arrivent alors dans DOSSIER/Documents/Surveo au
+//! lieu des Documents de l'élève ; `--ecran-factice` envoie des
+//! miniatures de démonstration.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -20,7 +23,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use surveo_agent::core::{self, AgentSetup, SessionView, Ui};
+use surveo_agent::core::{self, AgentSetup, SessionView, Student, Ui};
+use surveo_agent::peda::PanelView;
 use surveo_agent::restrict::RestrictionsView;
 use surveo_agent::setup;
 use surveo_platform::Component;
@@ -29,6 +33,8 @@ use tauri::{Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, Webvi
 const INDICATOR: &str = "indicator";
 const IDENTIFY: &str = "identify";
 const NOTICE: &str = "notice";
+const PANEL: &str = "panel";
+const POLL: &str = "poll";
 /// Fenêtres de l'écran en pause, une par écran : `pause-0`, `pause-1`…
 const PAUSE: &str = "pause-";
 /// Taille de l'indicateur, déplié et réduit (AGENT-2) ; il gagne une
@@ -37,6 +43,8 @@ const INDICATOR_SIZE: (f64, f64) = (560.0, 46.0);
 const INDICATOR_TALL: f64 = 74.0;
 const INDICATOR_COMPACT: (f64, f64) = (150.0, 46.0);
 const NOTICE_SIZE: (f64, f64) = (480.0, 64.0);
+const PANEL_SIZE: (f64, f64) = (430.0, 640.0);
+const POLL_SIZE: (f64, f64) = (480.0, 380.0);
 /// Durée d'affichage d'une notification.
 const NOTICE_SECONDS: u64 = 8;
 
@@ -64,6 +72,10 @@ struct AppState {
     /// Numéro de la dernière notification, pour ne fermer que la sienne.
     notice_gen: AtomicU64,
     error: Mutex<Option<String>>,
+    panel: Mutex<Option<PanelView>>,
+    student: Mutex<Option<Student>>,
+    /// File du fil des fenêtres, pour les commandes de l'interface.
+    jobs: Mutex<Option<std::sync::mpsc::Sender<Job>>>,
 }
 
 /// Ce que l'indicateur affiche.
@@ -110,6 +122,7 @@ impl TauriUi {
                 }
             })
             .expect("fil des fenêtres");
+        *app.state::<AppState>().jobs.lock().unwrap() = Some(jobs.clone());
         Self { app, jobs }
     }
 
@@ -167,6 +180,47 @@ fn sync_pause(app: &tauri::AppHandle) {
             }
         }
     });
+}
+
+/// Le sondage s'impose au premier plan tant que l'élève n'y a pas
+/// répondu ni ne l'a remis à plus tard (SONDAGE-2, AGENT-4) ; le panneau
+/// élève disparaît hors séance, sauf s'il annonce la fin du TP (TP-9).
+fn sync_peda(app: &tauri::AppHandle) {
+    let v = app.state::<AppState>().panel.lock().unwrap().clone();
+    let ask = v.as_ref().and_then(|v| v.poll.as_ref()).is_some_and(|p| p.open && p.answer.is_none() && !p.dismissed);
+    match (ask, app.get_webview_window(POLL)) {
+        (true, None) => {
+            if let Err(e) = poll_window(app) {
+                log::warn!("sondage impossible à afficher : {e}");
+            }
+        }
+        (false, Some(w)) => {
+            let _ = w.destroy();
+        }
+        _ => {}
+    }
+    let keep = v.as_ref().is_some_and(|v| v.ends_at_ms.is_some() || v.ended.is_some());
+    if !keep {
+        if let Some(w) = app.get_webview_window(PANEL) {
+            let _ = w.destroy();
+        }
+    }
+}
+
+/// Ouvre le panneau élève, ou le montre s'il est ouvert ; il ne prend le
+/// premier plan que si l'élève l'a demandé.
+fn open_panel(app: &tauri::AppHandle, focus: bool) {
+    if let Some(w) = app.get_webview_window(PANEL) {
+        let _ = w.show();
+        let _ = w.unminimize();
+        if focus {
+            let _ = w.set_focus();
+        }
+        return;
+    }
+    if let Err(e) = panel_window(app, focus) {
+        log::warn!("panneau élève impossible à afficher : {e}");
+    }
 }
 
 impl Ui for TauriUi {
@@ -247,6 +301,48 @@ impl Ui for TauriUi {
             });
         });
     }
+
+    fn panel(&self, v: &PanelView) {
+        *self.app.state::<AppState>().panel.lock().unwrap() = Some(v.clone());
+        let _ = self.app.emit("panel", v);
+        self.windows(sync_peda);
+    }
+
+    fn show_panel(&self) {
+        self.windows(|app| open_panel(app, false));
+    }
+}
+
+/// Panneau élève (AGENT-3) : une fenêtre ordinaire, sur la droite de
+/// l'écran, que l'élève déplace, réduit ou ferme ; l'indicateur la rouvre.
+fn panel_window(app: &tauri::AppHandle, focus: bool) -> tauri::Result<WebviewWindow> {
+    let w = WebviewWindowBuilder::new(app, PANEL, WebviewUrl::App("index.html#panel".into()))
+        .title("Surveo · panneau élève")
+        .inner_size(PANEL_SIZE.0, PANEL_SIZE.1)
+        .min_inner_size(340.0, 360.0)
+        .focused(focus)
+        .build()?;
+    if let Ok(Some(m)) = w.primary_monitor() {
+        let scale = m.scale_factor();
+        let x = m.position().x + (m.size().width as f64 - (PANEL_SIZE.0 + 24.0) * scale) as i32;
+        let y = m.position().y + ((24.0 + INDICATOR_TALL) * scale) as i32;
+        let _ = w.set_position(PhysicalPosition::new(x, y));
+    }
+    Ok(w)
+}
+
+/// Sondage au premier plan, au centre de l'écran (SONDAGE-2).
+fn poll_window(app: &tauri::AppHandle) -> tauri::Result<WebviewWindow> {
+    WebviewWindowBuilder::new(app, POLL, WebviewUrl::App("index.html#poll".into()))
+        .title("Surveo · sondage")
+        .inner_size(POLL_SIZE.0, POLL_SIZE.1)
+        .min_inner_size(POLL_SIZE.0, 240.0)
+        .center()
+        .decorations(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .focused(true)
+        .build()
 }
 
 /// Écran en pause : une fenêtre plein écran par écran, au premier plan,
@@ -352,6 +448,82 @@ fn startup_error(state: tauri::State<'_, AppState>) -> Option<String> {
     state.error.lock().unwrap().clone()
 }
 
+// --- Panneau élève (AGENT-3) --------------------------------------------
+
+fn student(state: &AppState) -> Result<Student, String> {
+    state.student.lock().unwrap().clone().ok_or_else(|| "Surveo n'est pas encore prêt.".into())
+}
+
+#[tauri::command]
+fn panel_state(state: tauri::State<'_, AppState>) -> Option<PanelView> {
+    state.student.lock().unwrap().as_ref().map(|s| s.view())
+}
+
+/// L'élève ouvre le panneau depuis l'indicateur.
+#[tauri::command]
+fn show_panel(state: tauri::State<'_, AppState>) {
+    if let Some(jobs) = state.jobs.lock().unwrap().as_ref() {
+        let _ = jobs.send(Box::new(|app: &tauri::AppHandle| open_panel(app, true)));
+    }
+}
+
+/// L'élève coche ou décoche une étape (TP-6).
+#[tauri::command]
+fn set_step(state: tauri::State<'_, AppState>, step: u16, done: bool) -> Result<(), String> {
+    student(&state)?.set_step(step, done);
+    Ok(())
+}
+
+/// « Choisir un fichier » : le dialogue du système, puis le dépôt
+/// (RENDU-1). Un refus s'affiche dans le panneau.
+#[tauri::command]
+fn pick_rendu(app: tauri::AppHandle, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    use tauri_plugin_dialog::DialogExt;
+    let s = student(&state)?;
+    app.dialog().file().set_title("Rendre mon travail").pick_files(move |paths| {
+        for p in paths.unwrap_or_default() {
+            if let Ok(path) = p.into_path() {
+                let _ = s.submit(&path);
+            }
+        }
+    });
+    Ok(())
+}
+
+/// Ouvre un fichier reçu, ou le dossier des fichiers reçus (TP-5,
+/// DISTRIB-3).
+#[tauri::command]
+fn open_received(state: tauri::State<'_, AppState>, id: Option<String>) -> Result<(), String> {
+    let s = student(&state)?;
+    let path = match id {
+        Some(id) => s.file_path(&id),
+        None => s.folder(),
+    };
+    let path = path.ok_or("Ce fichier n'est plus sur le poste.")?;
+    surveo_platform::files::open_path(&path).map_err(|e| format!("{e:#}"))
+}
+
+/// Lien d'une consigne, ouvert dans le navigateur du poste.
+#[tauri::command]
+fn open_link(url: String) -> Result<(), String> {
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err("Lien non pris en charge.".into());
+    }
+    surveo_platform::files::open_path(std::path::Path::new(&url)).map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+fn answer_poll(state: tauri::State<'_, AppState>, choices: Vec<u16>) -> Result<(), String> {
+    student(&state)?.answer(choices);
+    Ok(())
+}
+
+#[tauri::command]
+fn dismiss_poll(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    student(&state)?.dismiss_poll();
+    Ok(())
+}
+
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let dir = arg("--dossier").map(PathBuf::from).unwrap_or_else(|| surveo_platform::data_dir(Component::Agent));
@@ -401,10 +573,14 @@ fn main() {
         let id = setup::load_or_enroll(&dir, &p)?;
         let mut s = AgentSetup::new(dir.clone(), p, id);
         s.synthetic_screen = arg("--ecran-factice").and_then(|v| v.parse().ok());
+        if arg("--dossier").is_some() {
+            s.files_dir = dir.join("Documents").join("Surveo");
+        }
         Ok(s)
     });
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .setup(move |app| {
             match prepared {
@@ -416,11 +592,17 @@ fn main() {
                         s.package.etab.name
                     );
                     let ui = Arc::new(TauriUi::new(app.handle().clone()));
-                    tauri::async_runtime::spawn(async move {
-                        if let Err(e) = core::run(s, ui).await {
-                            log::error!("agent arrêté : {e:#}");
+                    match core::prepare(s, ui) {
+                        Ok((student, run)) => {
+                            *app.state::<AppState>().student.lock().unwrap() = Some(student);
+                            tauri::async_runtime::spawn(async move {
+                                if let Err(e) = run.await {
+                                    log::error!("agent arrêté : {e:#}");
+                                }
+                            });
                         }
-                    });
+                        Err(e) => log::error!("agent arrêté : {e:#}"),
+                    }
                 }
                 Err(e) => {
                     // Seul cas où l'agent ouvre une fenêtre hors séance : il ne
@@ -441,7 +623,21 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![indicator_state, indicator_compact, pause_message, notice_text, startup_error])
+        .invoke_handler(tauri::generate_handler![
+            indicator_state,
+            indicator_compact,
+            pause_message,
+            notice_text,
+            startup_error,
+            panel_state,
+            show_panel,
+            set_step,
+            pick_rendu,
+            open_received,
+            open_link,
+            answer_poll,
+            dismiss_poll
+        ])
         .build(tauri::generate_context!())
         .expect("échec du lancement de l'agent")
         .run(|app, event| match event {
@@ -458,6 +654,24 @@ fn main() {
                 if label == INDICATOR || label.starts_with(PAUSE) =>
             {
                 api.prevent_close();
+            }
+            // Fermer le sondage, c'est le remettre à plus tard.
+            tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::CloseRequested { .. }, .. } if label == POLL => {
+                if let Some(s) = app.state::<AppState>().student.lock().unwrap().as_ref() {
+                    s.dismiss_poll();
+                }
+            }
+            // Un fichier glissé sur le panneau élève est rendu (RENDU-1).
+            tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }), .. }
+                if label == PANEL =>
+            {
+                if let Some(s) = app.state::<AppState>().student.lock().unwrap().clone() {
+                    std::thread::spawn(move || {
+                        for p in paths {
+                            let _ = s.submit(&p);
+                        }
+                    });
+                }
             }
             _ => {}
         });

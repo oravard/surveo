@@ -4,7 +4,7 @@ members = ["crates/surveo-protocol", "crates/surveo-identity", "crates/surveo-ne
 exclude = ["prototypes"]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "EUPL-1.2"
 publish = false
@@ -24,6 +24,8 @@ rand = "0.8"
 hex = "0.4"
 base64 = "0.22"
 ts-rs = "11"
+sha2 = "0.10"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 tauri = { version = "2", features = [] }
 tauri-build = { version = "2", features = [] }
 surveo-protocol = { path = "crates/surveo-protocol" }

@@ -21,11 +21,14 @@ tauri-build.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+ts-rs.workspace = true
+chrono.workspace = true
 tokio.workspace = true
 futures-util.workspace = true
 log = "0.4"
 env_logger = { version = "0.11", default-features = false, features = ["auto-color", "humantime"] }
 tauri.workspace = true
+tauri-plugin-dialog = "2"
 surveo-protocol.workspace = true
 surveo-identity.workspace = true
 surveo-net.workspace = true

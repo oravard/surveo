@@ -3,12 +3,14 @@
 // passagers (`notice`, plus ceux de l'interface), la sélection et
 // l'horloge.
 import { invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { ConsoleView } from '$shared/bindings/ConsoleView';
 import type { Notice } from '$shared/bindings/Notice';
 import type { Thumb } from '$shared/bindings/Thumb';
 import type { StationView } from '$shared/bindings/StationView';
+import type { Attachment } from '$shared/bindings/Attachment';
 
 export type Toast = Omit<Notice, 'undo'> & { id: number; undo?: () => void };
 
@@ -16,7 +18,11 @@ export type Toast = Omit<Notice, 'undo'> & { id: number; undo?: () => void };
 export type DialogKind = 'open' | 'close' | 'room-new' | 'room-edit' | 'package' | null;
 
 /** Fenêtre d'action ouverte au-dessus de la barre d'actions. */
-export type PopKind = 'pause' | 'more' | 'web' | 'apps' | 'open-apps' | 'exam' | null;
+export type PopKind = 'pause' | 'more' | 'web' | 'apps' | 'open-apps' | 'exam' | 'tp' | 'file' | 'poll' | null;
+
+/** Espace de la console (SPEC.md, ESPACE-1) : Administrer viendra avec le
+ * chapitre 6. */
+export type Space = 'seance' | 'preparer';
 
 export const ui = $state({
   view: null as ConsoleView | null,
@@ -25,6 +31,8 @@ export const ui = $state({
   /** Poste en cours de placement sur le plan (SALLE-3). */
   placing: null as string | null,
   pop: null as PopKind,
+  /** Séance à l'ouverture (ESPACE-2). */
+  space: 'seance' as Space,
 });
 
 /** Postes sélectionnés (SEL-1). */
@@ -37,6 +45,32 @@ export function targets(): { members: string[]; stations: StationView[]; all: bo
   if (selection.size === 0) return { members: [], stations: stations.filter((s) => s.state === 'in_session'), all: true };
   return { members: [...selection], stations: stations.filter((s) => selection.has(s.member)), all: false };
 }
+/** Fait choisir des fichiers à l'enseignant, puis les range dans le
+ * magasin de la console ; rend leur description, ou rien. */
+export async function pickFiles(title: string): Promise<Attachment[] | null> {
+  const paths = await open({ multiple: true, directory: false, title });
+  if (!paths || paths.length === 0) return null;
+  try {
+    return await invoke<Attachment[]>('add_files', { paths });
+  } catch (e) {
+    toast({ text: String(e), detail: null, warning: true }, 8000);
+    return null;
+  }
+}
+
+/** Fichier glissé depuis le bureau, distribué aux postes visés
+ * (DISTRIB-1). */
+export async function distributeDropped(files: FileList, members: string[]) {
+  for (const f of Array.from(files)) {
+    try {
+      const data = new Uint8Array(await f.arrayBuffer());
+      await invoke('distribute_dropped', data, { headers: { 'x-name': encodeURIComponent(f.name), 'x-members': JSON.stringify(members) } });
+    } catch (e) {
+      toast({ text: String(e), detail: null, warning: true }, 8000);
+    }
+  }
+}
+
 /** Dernière miniature de chaque poste, en base 64 (AFF-4). */
 export const thumbs = new SvelteMap<string, string>();
 

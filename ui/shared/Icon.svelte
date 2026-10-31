@@ -24,6 +24,11 @@
     exam: '<path d="M3 9l9-4 9 4-9 4zM7 11v5c3 2 7 2 10 0v-5M21 9v6"/>',
     more: '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>',
     lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    list: '<path d="M10 6h10M10 12h10M10 18h10M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>',
+    poll: '<path d="M5 20V11M12 20V4M19 20v-7"/>',
+    book: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 19V5"/>',
+    folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    up: '<path d="M6 15l6-6 6 6"/>',
   } as const;
   export type IconName = keyof typeof PATHS;
 </script>

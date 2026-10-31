@@ -1,4 +1,5 @@
-//! Salles, séance et retours poste par poste (SPEC.md, chap. 1, 9.5).
+//! Salles, séance, restrictions et retours poste par poste (SPEC.md,
+//! chap. 1, 2, 9.5) ; la pédagogie (chap. 3) est dans [`peda`].
 //!
 //! Le moteur est synchrone et ne connaît ni l'interface ni le réseau :
 //! il reçoit les messages du relais ([`Engine::handle`]), les gestes de
@@ -6,7 +7,10 @@
 //! commandes par un [`Link`]. Il est appelé toutes les secondes par
 //! [`Engine::tick`] pour les échéances.
 
-use crate::store::{AppList, ExamState, JournalEntry, Lists, Pos, Profile, Room, Session, SessionRestrictions, SiteList, Station, Store};
+mod peda;
+
+use crate::library::Library;
+use crate::store::{AppList, Archive, ExamState, JournalEntry, Lists, Pos, Profile, Room, Session, SessionRestrictions, SiteList, Station, Store};
 use crate::view::*;
 use crate::*;
 use anyhow::{anyhow, bail, ensure, Result};
@@ -17,11 +21,17 @@ use surveo_protocol::*;
 /// Envoi des commandes vers les postes, par le relais.
 pub trait Link: Send {
     fn send(&self, m: &FromConsole);
+    /// Trame binaire vers un poste, codée par [`encode_console_frame`].
+    fn send_binary(&self, frame: &[u8]);
 }
 
 impl Link for surveo_relay_core::LocalSender {
     fn send(&self, m: &FromConsole) {
         surveo_relay_core::LocalSender::send(self, m)
+    }
+
+    fn send_binary(&self, frame: &[u8]) {
+        surveo_relay_core::LocalSender::send_binary(self, frame)
     }
 }
 
@@ -113,6 +123,14 @@ pub struct Engine {
     lists: Lists,
     /// Dernière liste des applications ouvertes de chaque poste (APP-1).
     apps: HashMap<MemberId, Vec<OpenApp>>,
+    library: Library,
+    archive: Archive,
+    /// Avancement annoncé par chaque poste dans son TP (TP-8).
+    progress: HashMap<MemberId, TpProgress>,
+    /// Fichiers distribués que chaque poste a reçus (DISTRIB-4).
+    received: HashMap<MemberId, BTreeSet<String>>,
+    /// Rendus en cours de réception, par identifiant.
+    incoming: HashMap<String, peda::Incoming>,
     link: Option<Box<dyn Link>>,
     next_id: u64,
     /// État du relais intégré, tenu par l'application.
@@ -172,7 +190,9 @@ impl Engine {
         }
         let room = session.as_ref().map(|s| s.room.clone()).or_else(|| rooms.first().map(|r| r.id.clone()));
         let lists = store.lists();
-        Ok(Self {
+        let library = store.library();
+        let archive = store.archive();
+        let e = Self {
             store,
             etab,
             profile,
@@ -187,11 +207,18 @@ impl Engine {
             undo: None,
             lists,
             apps: HashMap::new(),
+            library,
+            archive,
+            progress: HashMap::new(),
+            received: HashMap::new(),
+            incoming: HashMap::new(),
             link: None,
             next_id: 1,
             relay: RelayView::default(),
             notices: Vec::new(),
-        })
+        };
+        e.sweep_blobs();
+        Ok(e)
     }
 
     pub fn is_set_up(&self) -> bool {
@@ -252,6 +279,12 @@ impl Engine {
         id
     }
 
+    fn send_binary(&self, member: &str, kind: BinKind, payload: &[u8]) {
+        if let Some(link) = &self.link {
+            link.send_binary(&encode_console_frame(kind, member, payload));
+        }
+    }
+
     // --- Messages du relais ---------------------------------------------
 
     pub fn handle(&mut self, msg: ToConsole, now: u64) {
@@ -274,6 +307,9 @@ impl Engine {
                 }
             }
             ToConsole::FromAgent { from, msg: AgentMsg::Ack { id, ok, detail } } => {
+                if !ok {
+                    self.fetch_refused(&from, id, detail.as_deref());
+                }
                 for p in &mut self.pending {
                     if p.ids.get(&id) == Some(&from) {
                         if ok {
@@ -284,10 +320,16 @@ impl Engine {
                     }
                 }
             }
-            ToConsole::FromAgent { from, msg: AgentMsg::Status { session, screen, web } } => self.agent_status(&from, session, screen, web, now),
+            ToConsole::FromAgent { from, msg: AgentMsg::Status { session, screen, web, tp, files } } => {
+                self.agent_status(&from, session, screen, web, now);
+                self.agent_progress(&from, tp, files);
+            }
             ToConsole::FromAgent { from, msg: AgentMsg::Apps { apps, .. } } => {
                 self.apps.insert(from, apps);
             }
+            ToConsole::FromAgent { from, msg: AgentMsg::Fetch { file, offset, len } } => self.serve_fetch(&from, &file, offset, len),
+            ToConsole::FromAgent { from, msg: AgentMsg::Submit { rendu } } => self.offer_rendu(&from, rendu, now),
+            ToConsole::FromAgent { from, msg: AgentMsg::Answer { poll, choices } } => self.answer_poll(&from, &poll, choices, now),
             ToConsole::Refused { peer, reason } => {
                 self.refused.push_front(format!("{peer} : {reason}"));
                 self.refused.truncate(10);
@@ -331,9 +373,12 @@ impl Engine {
             if self.session.as_ref().is_some_and(|s| s.screens) {
                 self.send(to.clone(), Command::Screens { on: true });
             }
-            // Le poste réapplique les restrictions de la séance (RESTR-3).
-            if let Some(cmd) = self.restrict_cmd(&member, now) {
-                self.send(to, cmd);
+            // Le poste réapplique les restrictions de la séance (RESTR-3),
+            // et retrouve son TP, ses fichiers et le sondage (TP-2, TP-3,
+            // DISTRIB-4).
+            let cmds = [self.restrict_cmd(&member, now), self.tp_cmd(&member), self.files_cmd(&member), self.poll_cmd(&member, now)];
+            for cmd in cmds.into_iter().flatten() {
+                self.send(to.clone(), cmd);
             }
         }
     }
@@ -477,11 +522,18 @@ impl Engine {
             screens: false,
             members: BTreeSet::new(),
             restrictions: SessionRestrictions::default(),
+            tps: vec![],
+            tp: Default::default(),
+            files: vec![],
+            poll: None,
         });
         self.closure = None;
         self.alerts.clear();
         self.undo = None;
+        self.progress.clear();
+        self.received.clear();
         self.save_session();
+        self.archive_session(now);
         self.send_session(Target::Room(room), now);
         Ok(())
     }
@@ -542,6 +594,9 @@ impl Engine {
         if auto {
             self.notice("La séance s'est terminée d'elle-même", Some("L'heure de fin prévue et sa marge sont passées.".into()), false);
         }
+        // Les fichiers distribués ne servent plus ; les rendus en route
+        // continuent d'arriver (RENDU-3).
+        self.sweep_blobs();
         Ok(())
     }
 
@@ -849,6 +904,8 @@ impl Engine {
                 changed = true;
             }
         }
+        changed |= self.poll_tick(now);
+        self.rendus_tick(now);
         let (done, waiting): (Vec<_>, Vec<_>) = std::mem::take(&mut self.pending)
             .into_iter()
             .partition(|p| now >= p.deadline_ms || p.ids.values().all(|m| p.acked.contains(m) || p.refused.iter().any(|(r, _)| r == m)));
@@ -897,6 +954,11 @@ impl Engine {
             }
         }
         Notice { text, detail, warning, undo: p.undo }
+    }
+
+    /// Libellé d'un poste (nom de l'ordinateur), sinon son identifiant.
+    fn station_label(&self, member: &str) -> String {
+        self.rooms.iter().flat_map(|r| &r.stations).find(|s| s.member == member).map(|s| s.label.clone()).unwrap_or_else(|| member.to_string())
     }
 
     /// « poste 07 », ou le libellé d'un poste hors des salles connues.
@@ -969,6 +1031,10 @@ impl Engine {
                         banned_apps: r.map(|r| r.apps.get(&s.member).clone()).unwrap_or_default(),
                         web_state: o.map(|o| o.web.clone()).unwrap_or_default(),
                         apps: self.apps.get(&s.member).cloned(),
+                        tp: self.station_tp(&s.member),
+                        files_total: self.station_files(&s.member).0,
+                        files_received: self.station_files(&s.member).1,
+                        answered: self.station_answered(&s.member),
                     }
                 })
                 .collect(),
@@ -987,6 +1053,9 @@ impl Engine {
             web_all: s.restrictions.web.all.clone(),
             apps_all: s.restrictions.apps.all.clone(),
             exam: s.restrictions.exam.as_ref().map(|e| ExamView { end_ms: e.end_ms, sites: e.sites.clone() }),
+            tps: self.tps_view(),
+            files: self.distributions_view(),
+            poll: self.poll_view(),
         });
         let closure = self.closure.as_ref().map(|c| {
             let names = |st: Restore| -> Vec<String> {
@@ -1030,6 +1099,8 @@ impl Engine {
                 })
                 .collect(),
             lists: self.lists.clone(),
+            library: self.library.clone(),
+            rendus_dir: self.store.rendus.display().to_string(),
             limits: Limits {
                 default_duration_ms: DEFAULT_DURATION_MS,
                 max_duration_ms: MAX_DURATION_MS,
@@ -1045,27 +1116,31 @@ mod tests {
     use super::*;
     use std::sync::{Arc, Mutex};
 
+    /// Ce que le moteur envoie : commandes, et trames binaires à part.
     #[derive(Clone, Default)]
-    struct Recorder(Arc<Mutex<Vec<FromConsole>>>);
+    pub(super) struct Recorder(Arc<Mutex<Vec<FromConsole>>>, pub(super) Arc<Mutex<Vec<Vec<u8>>>>);
 
     impl Link for Recorder {
         fn send(&self, m: &FromConsole) {
             self.0.lock().unwrap().push(m.clone());
         }
+        fn send_binary(&self, frame: &[u8]) {
+            self.1.lock().unwrap().push(frame.to_vec());
+        }
     }
 
     impl Recorder {
-        fn take(&self) -> Vec<(Target, Command)> {
+        pub(super) fn take(&self) -> Vec<(Target, Command)> {
             self.0.lock().unwrap().drain(..).map(|FromConsole::Send { to, cmd, .. }| (to, cmd)).collect()
         }
-        fn ids(&self) -> Vec<(u64, Command)> {
+        pub(super) fn ids(&self) -> Vec<(u64, Command)> {
             self.0.lock().unwrap().drain(..).map(|FromConsole::Send { id, cmd, .. }| (id, cmd)).collect()
         }
     }
 
-    const T0: u64 = 1_800_000_000_000;
+    pub(super) const T0: u64 = 1_800_000_000_000;
 
-    fn engine() -> (Engine, Recorder, std::path::PathBuf) {
+    pub(super) fn engine() -> (Engine, Recorder, std::path::PathBuf) {
         let dir = std::env::temp_dir().join(format!("surveo-console-test-{}", random_id()));
         let mut e = Engine::new(Store::new(dir.clone()), T0).unwrap();
         e.create_establishment("Lycée test", "M. Durand").unwrap();
@@ -1075,7 +1150,7 @@ mod tests {
         (e, rec, dir)
     }
 
-    fn presence(e: &Engine, member: &str) -> AgentPresence {
+    pub(super) fn presence(e: &Engine, member: &str) -> AgentPresence {
         AgentPresence {
             member: member.into(),
             room: e.room.clone(),
@@ -1083,8 +1158,8 @@ mod tests {
         }
     }
 
-    fn status(e: &mut Engine, member: &str, session: Option<&str>) {
-        let msg = AgentMsg::Status { session: session.map(Into::into), screen: ScreenState::Off, web: WebState::Off };
+    pub(super) fn status(e: &mut Engine, member: &str, session: Option<&str>) {
+        let msg = AgentMsg::Status { session: session.map(Into::into), screen: ScreenState::Off, web: WebState::Off, tp: None, files: vec![] };
         e.handle(ToConsole::FromAgent { from: member.into(), msg }, T0);
     }
 
@@ -1231,7 +1306,7 @@ mod tests {
             .collect()
     }
 
-    fn in_session(e: &mut Engine, members: &[&str]) -> SessionId {
+    pub(super) fn in_session(e: &mut Engine, members: &[&str]) -> SessionId {
         for m in members {
             let p = presence(e, m);
             e.handle(ToConsole::Online { agent: p }, T0);
@@ -1337,7 +1412,7 @@ mod tests {
         let sid = in_session(&mut e, &["a", "b"]);
         e.set_web(&[], Some(WebPolicy::All), T0).unwrap();
         e.take_notices();
-        let msg = AgentMsg::Status { session: Some(sid), screen: ScreenState::Off, web: WebState::Escaped };
+        let msg = AgentMsg::Status { session: Some(sid), screen: ScreenState::Off, web: WebState::Escaped, tp: None, files: vec![] };
         e.handle(ToConsole::FromAgent { from: "a".into(), msg }, T0);
         assert_eq!(e.take_notices()[0].text, "Poste 01 : sorti du filtrage web");
         e.handle(ToConsole::Offline { member: "b".into() }, T0);

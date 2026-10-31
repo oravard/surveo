@@ -1,10 +1,11 @@
 <script lang="ts">
-  // Panneau latéral (SPEC.md, PANNEAU-1) : état de la séance, sorties de
-  // restriction (MODE-3), récapitulatif de la clôture (RESTR-5), relais
-  // intégré et connexions refusées (CONF-3).
+  // Panneau latéral (SPEC.md, PANNEAU-1) : état de la séance, TP, fichiers
+  // et sondage en cours, sorties de restriction (MODE-3), récapitulatif de
+  // la clôture (RESTR-5), relais intégré et connexions refusées (CONF-3).
   import Icon from '$shared/Icon.svelte';
   import { hhmm } from '$shared/time';
-  import { ui, type DialogKind } from './store.svelte';
+  import { ui, call, type DialogKind } from './store.svelte';
+  import PanelPeda from './PanelPeda.svelte';
 
   let { show }: { show: (d: DialogKind) => void } = $props();
 
@@ -45,6 +46,10 @@
     {/if}
   </section>
 
+  {#if view.session}
+    <PanelPeda />
+  {/if}
+
   {#if view.alerts.length}
     <section class="psec">
       <h3><Icon name="wifioff" size={15} />Sorties de restriction</h3>
@@ -70,6 +75,8 @@
           <li class="warn">{p} : injoignable, remise en état à son prochain démarrage ou à <span class="mono">{hhmm(closure.restore_by_ms)}</span>.</li>
         {/each}
       </ul>
+      <p class="note">Les rendus sont conservés, rangés par séance, TP et poste ; un rendu déposé pendant une coupure arrive encore.</p>
+      <button class="btn" onclick={() => call('open_rendus', { member: null })}><Icon name="folder" size={15} />Ouvrir les rendus de la séance</button>
     </section>
   {/if}
 
