@@ -4,6 +4,7 @@
   // Administrer) viendront avec leurs fonctions.
   import { ui, selection, type DialogKind } from './store.svelte';
   import TopBar from './TopBar.svelte';
+  import Banners from './Banners.svelte';
   import Plan from './Plan.svelte';
   import Panel from './Panel.svelte';
   import ActionBar from './ActionBar.svelte';
@@ -19,7 +20,10 @@
   const view = $derived(ui.view!);
 
   function onkeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape' && !dialog) {
+    if (e.key !== 'Escape' || dialog) return;
+    // Échap ferme d'abord la fenêtre d'action ouverte, puis désélectionne.
+    if (ui.pop) ui.pop = null;
+    else {
       ui.placing = null;
       selection.clear();
     }
@@ -30,6 +34,7 @@
 
 <div class="shell">
   <TopBar {show} />
+  <Banners />
   <div class="main">
     {#if view.room}
       <Plan {show} />

@@ -9,6 +9,7 @@
 //! | `identite.json` | identité du poste, signée par le paquet (secret) |
 //! | `relais.json` | dernier relais joint (DECOUV-1, niveau 1) |
 //! | `jeton-capture.txt` | jeton de restauration du portail (Wayland) |
+//! | `remise-en-etat.json` | réglages modifiés pendant la séance et leur valeur d'origine (IMPL.md, 2.2) |
 //! | `agent.lock` | verrou d'instance unique, avec le numéro du processus |
 //!
 //! Installé sans droits d'administration, l'exécutable y est copié et

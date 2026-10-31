@@ -4248,7 +4248,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "surveo-agent"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "env_logger",
@@ -4267,7 +4267,7 @@ dependencies = [
 
 [[package]]
 name = "surveo-console"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -4290,7 +4290,7 @@ dependencies = [
 
 [[package]]
 name = "surveo-identity"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "ed25519-dalek",
@@ -4303,7 +4303,7 @@ dependencies = [
 
 [[package]]
 name = "surveo-net"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "futures-util",
@@ -4322,15 +4322,19 @@ dependencies = [
 
 [[package]]
 name = "surveo-platform"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "ashpd",
  "fast_image_resize",
  "jpeg-encoder",
+ "libc",
  "log",
  "pipewire",
+ "serde",
+ "serde_json",
  "tokio",
+ "windows-sys 0.61.2",
  "winreg 0.55.0",
  "x11rb",
  "xcap",
@@ -4338,7 +4342,7 @@ dependencies = [
 
 [[package]]
 name = "surveo-protocol"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -4347,7 +4351,7 @@ dependencies = [
 
 [[package]]
 name = "surveo-relay-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "bytes",

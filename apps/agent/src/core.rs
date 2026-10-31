@@ -1,21 +1,24 @@
 //! Cœur de l'agent : trouver le relais, rejoindre la séance, envoyer les
 //! miniatures, revenir à l'état d'origine (SPEC.md, chap. 1).
 //!
-//! L'agent est autonome pendant une coupure : il garde la séance jusqu'à
-//! son heure de fin, marge comprise, et la quitte de lui-même ensuite
-//! (RESTR-1, RESTR-2). Au démarrage, il est toujours hors séance
-//! (RESTR-3, DEMAR-2) ; la console le relie à la séance ouverte de sa
-//! salle dès qu'il se connecte (REJ-1).
+//! L'agent est autonome pendant une coupure : il garde la séance et ses
+//! restrictions jusqu'à son heure de fin, marge comprise, et la quitte de
+//! lui-même ensuite (RESTR-1, RESTR-2). Au démarrage, il est toujours hors
+//! séance (RESTR-3, DEMAR-2) ; la console le relie à la séance ouverte de
+//! sa salle dès qu'il se connecte (REJ-1), et lui renvoie ses restrictions
+//! ([`crate::restrict`]).
 
+use crate::restrict::{Restrictor, RestrictionsView};
 use crate::setup;
 use anyhow::{anyhow, Result};
 use futures_util::{SinkExt, StreamExt};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use surveo_identity::{Identity, Package, Trust};
 use surveo_net::{discovery, handshake, ClientWs, Refused, WsMessage};
 use surveo_platform::capture::{self, Capture, CaptureEvent, CaptureOptions};
+use surveo_platform::proxy::{SystemProxy, UserProxy};
 use surveo_protocol::*;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
@@ -26,6 +29,9 @@ const IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 /// Durée d'écoute des réponses à une recherche du relais.
 const SEARCH_WAIT: Duration = Duration::from_millis(1500);
 const MAX_BACKOFF: Duration = Duration::from_secs(10);
+/// Période des vérifications des restrictions : fin du mode examen,
+/// applications interdites, réglage du proxy.
+const CHECK_PERIOD: Duration = Duration::from_secs(2);
 
 /// Ce que l'indicateur de séance affiche (REJ-4).
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
@@ -42,6 +48,14 @@ pub trait Ui: Send + Sync + 'static {
     fn session(&self, s: Option<&SessionView>);
     /// Afficher un grand numéro pendant quelques secondes (SALLE-4).
     fn identify(&self, number: &str, seconds: u32);
+    /// Restrictions en cours, énoncées par l'indicateur (MAIT-1, EXAM-1).
+    fn restrictions(&self, r: &RestrictionsView);
+    /// Recouvrir chaque écran avec ce message, ou lever la pause (`None`)
+    /// (ECRAN-1, ECRAN-2).
+    fn pause(&self, message: Option<&str>) -> Result<(), String>;
+    /// Notification discrète à l'élève (AGENT-4) : site bloqué,
+    /// application fermée.
+    fn notify(&self, text: &str);
 }
 
 pub struct AgentSetup {
@@ -53,6 +67,8 @@ pub struct AgentSetup {
     pub synthetic_screen: Option<usize>,
     /// Port de recherche du relais (tests).
     pub discovery_port: u16,
+    /// Réglage du proxy de l'utilisateur (simulé pour les essais).
+    pub proxy: Arc<dyn UserProxy>,
 }
 
 impl AgentSetup {
@@ -64,7 +80,7 @@ impl AgentSetup {
             kind: package.kind,
             mode: DeployMode::SansAdmin,
         };
-        Self { dir, package, identity, info, synthetic_screen: None, discovery_port: DISCOVERY_PORT }
+        Self { dir, package, identity, info, synthetic_screen: None, discovery_port: DISCOVERY_PORT, proxy: Arc::new(SystemProxy) }
     }
 }
 
@@ -89,12 +105,32 @@ struct Agent {
     screen: ScreenState,
     frames_tx: mpsc::Sender<(u64, CaptureEvent)>,
     frames_rx: mpsc::Receiver<(u64, CaptureEvent)>,
+    restrictor: Arc<Mutex<Restrictor>>,
+    /// Signale un changement de l'état annoncé, trouvé par les
+    /// vérifications périodiques.
+    changes_rx: mpsc::Receiver<()>,
 }
 
 /// Fait tourner l'agent indéfiniment.
 pub async fn run(setup: AgentSetup, ui: Arc<dyn Ui>) -> Result<()> {
     let trust = Trust::new(setup.package.etab.clone())?;
     let (frames_tx, frames_rx) = mpsc::channel(2);
+    // Retour à l'état d'origine avant toute connexion (DEMAR-2).
+    crate::restrict::restore_leftovers(&setup.dir, setup.proxy.as_ref());
+    let restrictor = Arc::new(Mutex::new(Restrictor::new(ui.clone(), setup.dir.clone(), setup.proxy.clone())));
+    let (changes_tx, changes_rx) = mpsc::channel(4);
+    {
+        let r = restrictor.clone();
+        tokio::spawn(async move {
+            let mut every = tokio::time::interval(CHECK_PERIOD);
+            loop {
+                every.tick().await;
+                if r.lock().unwrap().tick() {
+                    let _ = changes_tx.try_send(());
+                }
+            }
+        });
+    }
     let mut agent = Agent {
         setup,
         trust,
@@ -106,6 +142,8 @@ pub async fn run(setup: AgentSetup, ui: Arc<dyn Ui>) -> Result<()> {
         screen: ScreenState::Off,
         frames_tx,
         frames_rx,
+        restrictor,
+        changes_rx,
     };
     agent.run().await
 }
@@ -215,8 +253,8 @@ impl Agent {
                         continue;
                     };
                     let before = self.status();
-                    let (ok, detail) = self.handle(cmd);
-                    send(&mut sink, &AgentMsg::Ack { id, ok, detail }).await?;
+                    let reply = self.handle(id, cmd);
+                    send(&mut sink, &reply).await?;
                     let after = self.status();
                     if after != before {
                         send(&mut sink, &after).await?;
@@ -245,16 +283,32 @@ impl Agent {
                     self.leave_session();
                     send(&mut sink, &self.status()).await?;
                 }
+                Some(()) = self.changes_rx.recv() => {
+                    send(&mut sink, &self.status()).await?;
+                }
             }
         }
     }
 
     fn status(&self) -> AgentMsg {
-        AgentMsg::Status { session: self.session.as_ref().map(|s| s.info.id.clone()), screen: self.screen.clone() }
+        AgentMsg::Status {
+            session: self.session.as_ref().map(|s| s.info.id.clone()),
+            screen: self.screen.clone(),
+            web: self.restrictor.lock().unwrap().web_state(),
+        }
     }
 
-    /// Exécute une commande ; rend l'acquittement (RETOUR-1).
-    fn handle(&mut self, cmd: Command) -> (bool, Option<String>) {
+    /// Exécute une commande ; rend la réponse, en général l'acquittement
+    /// (RETOUR-1).
+    fn handle(&mut self, id: u64, cmd: Command) -> AgentMsg {
+        let (ok, detail) = match cmd {
+            Command::ListApps => return AgentMsg::Apps { id, apps: self.restrictor.lock().unwrap().list_apps() },
+            cmd => self.execute(cmd),
+        };
+        AgentMsg::Ack { id, ok, detail }
+    }
+
+    fn execute(&mut self, cmd: Command) -> (bool, Option<String>) {
         match cmd {
             Command::Session { session } => {
                 self.join_session(session);
@@ -282,6 +336,29 @@ impl Agent {
                 self.ui.identify(&number, seconds.clamp(1, 30));
                 (true, None)
             }
+            Command::Restrict { session, restrictions } => {
+                if self.session.as_ref().is_none_or(|s| s.info.id != session) {
+                    return (false, Some("hors séance".into()));
+                }
+                // Sur un poste personnel, Surveo observe et signale
+                // seulement (PERSO-3, EXAM-5).
+                if self.setup.info.kind == PosteKind::Personnel {
+                    let any = restrictions != Restrictions::default();
+                    return (!any, any.then(|| "poste personnel : aucune restriction ne s'y applique".into()));
+                }
+                let errors = self.restrictor.lock().unwrap().apply(restrictions);
+                (errors.is_empty(), (!errors.is_empty()).then(|| errors.join(" · ")))
+            }
+            Command::CloseApp { app } => {
+                if self.session.is_none() {
+                    return (false, Some("hors séance".into()));
+                }
+                match self.restrictor.lock().unwrap().close_app(&app) {
+                    Ok(()) => (true, None),
+                    Err(e) => (false, Some(e)),
+                }
+            }
+            Command::ListApps => unreachable!("traitée par handle"),
         }
     }
 
@@ -306,14 +383,15 @@ impl Agent {
         if changed {
             self.ui.session(Some(&view));
         }
+        self.restrictor.lock().unwrap().begin(&info.teacher);
         self.session = Some(Active { info, deadline, view });
     }
 
     /// Fin de la séance, sur ordre de la console (SEANCE-5) ou à
-    /// l'échéance (SEANCE-6) : retour à l'état d'origine. En tranche 1,
-    /// l'agent ne modifie rien d'autre sur le poste que la capture et
-    /// l'indicateur.
+    /// l'échéance (SEANCE-6) : toutes les restrictions sont levées et le
+    /// poste revient à son état d'origine.
     fn leave_session(&mut self) {
+        self.restrictor.lock().unwrap().clear();
         if let Some(s) = self.session.take() {
             log::info!("séance {} quittée : poste dans son état d'origine", s.info.id);
         }

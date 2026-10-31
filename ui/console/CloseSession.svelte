@@ -18,7 +18,9 @@
 
 <Dialog title="Clôturer la séance ?" {onclose}>
   <p>
-    {n === 0 ? 'Aucun poste n’est dans la séance.' : `Les ${n} poste${n > 1 ? 's' : ''} de la séance reviendront à leur état d'origine.`}
+    {n === 0
+      ? 'Aucun poste n’est dans la séance.'
+      : `Les ${n} poste${n > 1 ? 's' : ''} de la séance reviendront à leur état d'origine : écrans repris, filtrage web levé, applications de nouveau permises.`}
     Un poste injoignable y reviendra de lui-même.
   </p>
   <div class="row">

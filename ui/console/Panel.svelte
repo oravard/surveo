@@ -1,7 +1,7 @@
 <script lang="ts">
-  // Panneau latéral (SPEC.md, PANNEAU-1) : état de la séance,
-  // récapitulatif de la clôture (RESTR-5), relais intégré et connexions
-  // refusées (CONF-3).
+  // Panneau latéral (SPEC.md, PANNEAU-1) : état de la séance, sorties de
+  // restriction (MODE-3), récapitulatif de la clôture (RESTR-5), relais
+  // intégré et connexions refusées (CONF-3).
   import Icon from '$shared/Icon.svelte';
   import { hhmm } from '$shared/time';
   import { ui, type DialogKind } from './store.svelte';
@@ -16,6 +16,9 @@
     off: stations.filter((s) => s.state === 'off').length,
   });
   const closure = $derived(view.closure);
+  /** Postes allumés installés sans droits d'administration (MODE-2). */
+  const sansAdmin = $derived(stations.filter((s) => s.mode === 'sans_admin').length);
+  const etab = $derived(stations.filter((s) => s.mode === 'etablissement').length);
 </script>
 
 <aside class="panel" aria-label="Activités de la séance">
@@ -29,7 +32,31 @@
     {#if !view.session && counts.on > 0}
       <p class="note">Les postes allumés rejoindront la séance dès qu'elle sera ouverte.</p>
     {/if}
+    {#if sansAdmin}
+      <p class="note">
+        <Icon name="lock" size={13} />
+        {sansAdmin === counts.in + counts.on ? 'Tous les postes allumés sont installés' : `${sansAdmin} poste${sansAdmin > 1 ? 's' : ''} installé${sansAdmin > 1 ? 's' : ''}`}
+        sans droits d'administration : la maîtrise est coopérative. Le filtrage web ne porte que sur les navigateurs et cesse si
+        l'agent est arrêté ; la console signale toute sortie de restriction.
+      </p>
+    {/if}
+    {#if etab}
+      <p class="note">{etab} poste{etab > 1 ? 's' : ''} déployé{etab > 1 ? 's' : ''} par l'établissement.</p>
+    {/if}
   </section>
+
+  {#if view.alerts.length}
+    <section class="psec">
+      <h3><Icon name="wifioff" size={15} />Sorties de restriction</h3>
+      <ul class="recap">
+        {#each view.alerts as a}
+          <li class:warn={a.until_ms === null}>
+            <span class="mono">{hhmm(a.at_ms)}{a.until_ms !== null ? ` – ${hhmm(a.until_ms)}` : ''}</span> · {a.text}
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
 
   {#if closure}
     <section class="psec">

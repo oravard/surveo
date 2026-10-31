@@ -4,4 +4,8 @@
  * Message passager à l'enseignant : retour d'action (RETOUR-1),
  * avertissement.
  */
-export type Notice = { text: string, detail: string | null, warning: boolean, };
+export type Notice = { text: string, detail: string | null, warning: boolean, 
+/**
+ * Jeton à rendre à `undo` pour annuler l'action (RETOUR-3).
+ */
+undo: number | null, };

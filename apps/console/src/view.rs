@@ -2,9 +2,9 @@
 //! engendrés dans `ui/shared/bindings/` par
 //! `cargo test -p surveo-console export_bindings`.
 
-use crate::store::Pos;
+use crate::store::{Lists, Pos};
 use serde::Serialize;
-use surveo_protocol::ScreenState;
+use surveo_protocol::{DeployMode, OpenApp, PosteKind, ScreenState, WebPolicy, WebState};
 use ts_rs::TS;
 
 #[derive(Serialize, Clone, Debug, TS)]
@@ -21,7 +21,23 @@ pub struct ConsoleView {
     pub closure: Option<ClosureView>,
     /// Dernières connexions refusées par le relais (CONF-3).
     pub refused: Vec<String>,
+    /// Sorties de restriction de la séance, la plus récente d'abord
+    /// (MODE-3, MODE-5).
+    pub alerts: Vec<Alert>,
+    /// Listes de sites et d'applications de l'enseignant (WEB-4, APP-4).
+    pub lists: Lists,
     pub limits: Limits,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq, Eq, TS)]
+#[ts(export)]
+pub struct Alert {
+    #[ts(type = "number")]
+    pub at_ms: u64,
+    /// Fin de la sortie (retour du poste), si elle est connue.
+    #[ts(type = "number | null")]
+    pub until_ms: Option<u64>,
+    pub text: String,
 }
 
 #[derive(Serialize, Clone, Debug, TS)]
@@ -84,6 +100,18 @@ pub struct StationView {
     pub state: StationState,
     pub screen: ScreenState,
     pub os: Option<String>,
+    /// Type et mode de déploiement, connus quand le poste est allumé
+    /// (MODE-2).
+    pub kind: Option<PosteKind>,
+    pub mode: Option<DeployMode>,
+    /// Restrictions du poste dans la séance (AFF-2).
+    pub pause: Option<String>,
+    pub web: Option<WebPolicy>,
+    pub banned_apps: Vec<String>,
+    /// État du filtrage annoncé par le poste (MODE-3).
+    pub web_state: WebState,
+    /// Applications ouvertes, si l'enseignant les a demandées (APP-1).
+    pub apps: Option<Vec<OpenApp>>,
 }
 
 #[derive(Serialize, Clone, Debug, TS)]
@@ -103,6 +131,20 @@ pub struct SessionView {
     #[ts(type = "number")]
     pub margin_ms: u64,
     pub screens_on: bool,
+    /// Restrictions posées sur toute la salle (SEL-2).
+    pub pause_all: Option<String>,
+    pub web_all: Option<WebPolicy>,
+    pub apps_all: Vec<String>,
+    pub exam: Option<ExamView>,
+}
+
+/// Mode examen de la séance (EXAM-1).
+#[derive(Serialize, Clone, Debug, TS)]
+#[ts(export)]
+pub struct ExamView {
+    #[ts(type = "number")]
+    pub end_ms: u64,
+    pub sites: Vec<String>,
 }
 
 #[derive(Serialize, Clone, Debug, TS)]
@@ -142,6 +184,9 @@ pub struct Notice {
     pub text: String,
     pub detail: Option<String>,
     pub warning: bool,
+    /// Jeton à rendre à `undo` pour annuler l'action (RETOUR-3).
+    #[ts(type = "number | null")]
+    pub undo: Option<u64>,
 }
 
 /// Miniature de l'écran d'un poste, en JPEG codé en base 64 (AFF-4).

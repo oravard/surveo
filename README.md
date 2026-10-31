@@ -7,10 +7,11 @@ ramasser des fichiers, communiquer avec les élèves, reprendre la main
 quand il le faut.
 
 > **État du projet : en développement.** Surveo est en cours de refonte
-> complète à partir d'un premier prototype. Une première version d'essai
-> couvre la séance minimale : plan de salle, miniatures des écrans,
-> ouverture, prolongation et clôture d'une séance, retour des postes à
-> leur état d'origine.
+> complète à partir d'un premier prototype. La version d'essai couvre la
+> séance (plan de salle, miniatures des écrans, ouverture, prolongation et
+> clôture, retour des postes à leur état d'origine) et la maîtrise de la
+> classe (écran en pause, filtrage web, applications interdites, mode
+> examen).
 
 ## Principes
 

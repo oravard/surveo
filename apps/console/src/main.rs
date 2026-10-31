@@ -19,7 +19,7 @@ use surveo_console::view::{ConsoleView, RelayView, Thumb};
 use surveo_console::now_ms;
 use surveo_identity::save_json;
 use surveo_platform::Component;
-use surveo_protocol::{decode_console_frame, BinKind, MemberId, ToConsole, DISCOVERY_PORT, RELAY_PORT};
+use surveo_protocol::{decode_console_frame, BinKind, MemberId, ToConsole, WebPolicy, DISCOVERY_PORT, RELAY_PORT};
 use surveo_relay_core::{Frame, Relay, RelayConfig};
 use tauri::{Emitter, Manager};
 
@@ -121,6 +121,69 @@ fn set_screens(app: tauri::AppHandle, on: bool) -> Res<()> {
 #[tauri::command]
 fn identify(app: tauri::AppHandle, members: Vec<MemberId>) -> Res<()> {
     act(&app, |e, now| e.identify(&members, now))
+}
+
+// --- Restrictions (SPEC.md, chap. 2) : sans poste désigné, toute la salle.
+
+#[tauri::command]
+fn set_pause(app: tauri::AppHandle, members: Vec<MemberId>, message: Option<String>) -> Res<()> {
+    act(&app, |e, now| e.set_pause(&members, message, now))
+}
+
+#[tauri::command]
+fn set_web(app: tauri::AppHandle, members: Vec<MemberId>, policy: Option<WebPolicy>) -> Res<()> {
+    act(&app, |e, now| e.set_web(&members, policy, now))
+}
+
+#[tauri::command]
+fn set_banned_apps(app: tauri::AppHandle, members: Vec<MemberId>, apps: Vec<String>) -> Res<()> {
+    act(&app, |e, now| e.set_banned_apps(&members, apps, now))
+}
+
+#[tauri::command]
+fn set_exam(app: tauri::AppHandle, end_ms: Option<u64>, sites: Vec<String>) -> Res<()> {
+    act(&app, |e, now| e.set_exam(end_ms.map(|t| (t, sites)), now))
+}
+
+#[tauri::command]
+fn undo(app: tauri::AppHandle, id: u64) -> Res<()> {
+    act(&app, |e, now| e.undo(id, now))
+}
+
+#[tauri::command]
+fn list_apps(app: tauri::AppHandle, member: MemberId) -> Res<()> {
+    act(&app, |e, _| e.list_apps(&member))
+}
+
+#[tauri::command]
+fn close_app(app: tauri::AppHandle, member: MemberId, id: String) -> Res<()> {
+    act(&app, |e, now| e.close_app(&member, &id, now))
+}
+
+#[tauri::command]
+fn save_site_list(app: tauri::AppHandle, name: String, sites: Vec<String>) -> Res<()> {
+    act(&app, |e, _| e.save_site_list(&name, &sites))
+}
+
+#[tauri::command]
+fn delete_site_list(app: tauri::AppHandle, name: String) -> Res<()> {
+    act(&app, |e, _| {
+        e.delete_site_list(&name);
+        Ok(())
+    })
+}
+
+#[tauri::command]
+fn save_app_list(app: tauri::AppHandle, name: String, apps: Vec<String>) -> Res<()> {
+    act(&app, |e, _| e.save_app_list(&name, &apps))
+}
+
+#[tauri::command]
+fn delete_app_list(app: tauri::AppHandle, name: String) -> Res<()> {
+    act(&app, |e, _| {
+        e.delete_app_list(&name);
+        Ok(())
+    })
 }
 
 /// Enregistre le paquet de rattachement d'une salle (INST-3) à
@@ -232,6 +295,17 @@ fn main() {
             close_session,
             set_screens,
             identify,
+            set_pause,
+            set_web,
+            set_banned_apps,
+            set_exam,
+            undo,
+            list_apps,
+            close_app,
+            save_site_list,
+            delete_site_list,
+            save_app_list,
+            delete_app_list,
             export_package,
             package_file_name
         ])

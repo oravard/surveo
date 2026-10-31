@@ -14,7 +14,7 @@ par les identifiants de règles.
 | 1. Maquette | `maquette/console-surveo.html`, validée (SPEC.md, 9.10) | Fait |
 | 2. Prototypes techniques | Lever les risques techniques un par un (ci-dessous) | Fait |
 | 3. Architecture | Composants, protocole, organisation du code, à partir des résultats de la phase 2 | Validée ([Architecture](#architecture)) ; questions ouvertes reportées au développement |
-| 4. Développement | Par incréments complets, en commençant par une séance minimale | En cours : tranche 1 faite ([1.2](#12-séance-minimale)) |
+| 4. Développement | Par incréments complets, en commençant par une séance minimale | En cours : tranches 1 et 2 faites ([1.2](#12-séance-minimale), [2.2](#22-maîtrise-en-séance)) |
 
 ### Phase 2 — prototypes techniques
 
@@ -271,7 +271,7 @@ communes :
 | `surveo-identity` | `crates/` | Clé d'établissement, certificats de membre, paquet de rattachement (6.1). |
 | `surveo-net` | `crates/` | WebSocket sur TLS, authentification mutuelle liée à la session TLS, recherche du relais sur le réseau local. |
 | `surveo-relay-core` | `crates/` | Moteur du relais, autonome ou embarqué dans la console (7.4). |
-| `surveo-platform` | `crates/` | Capacités par OS : capture d'écran, démarrage de session, dossiers. |
+| `surveo-platform` | `crates/` | Capacités par OS : capture d'écran, démarrage de session, proxy de l'utilisateur, applications de la session, dossiers. |
 | `surveo-agent` | `apps/agent/` | Agent du poste élève : un cœur sans interface (`lib`) et l'application Tauri (`main`). |
 | `surveo-console` | `apps/console/` | Console : un cœur sans interface (`lib`), l'application Tauri qui embarque le relais (`main`). |
 
@@ -316,8 +316,9 @@ formalisée à l'étape 8 (INST-7).
    relais embarqué) montre le plan et les miniatures, on ouvre, prolonge
    et clôture une séance, et le poste revient à son état d'origine
    (chap. 1). **Premier trio autonome testable en salle.**
-2. **Maîtrise** : écran en pause, filtrage web, fermeture d'application,
-   mode examen, via `surveo-platform` (chap. 2).
+2. **Maîtrise** — fait ([2.2](#22-maîtrise-en-séance)) : écran en
+   pause, filtrage web, fermeture d'application, mode examen, via
+   `surveo-platform` (chap. 2).
 3. **Pédagogie** : modèles de TP, lancement et suivi, rendus,
    distribution, sondages (chap. 3).
 4. **Communication** : messages, conversation, demande d'aide, diffusion
@@ -537,9 +538,8 @@ plus la marge, connecté ou non (RESTR-1, RESTR-2). Il ne capture l'écran
 que dans une séance dont l'enseignant affiche les écrans, et cesse dès
 que la connexion tombe. Il annonce son état (séance, écran) à la
 connexion et à chaque changement ; la console s'en sert pour se
-resynchroniser. En tranche 1, l'agent ne modifie rien d'autre sur le
-poste que l'affichage de l'indicateur et la capture : le journal de
-remise en état (`sans-admin`, 2.1) viendra avec la première restriction.
+resynchroniser. Les restrictions et le journal de remise en état sont
+décrits en 2.2.
 
 **Messages** (`crates/surveo-protocol`) :
 
@@ -714,6 +714,191 @@ seule l'absence du proxy le fait.
 - Un programme qui n'utilise pas le proxy du système (client de jeu,
   certaines applications) n'est pas filtré : le filtrage sans droits
   d'administration ne vaut que pour les navigateurs.
+
+### 2.2 Maîtrise en séance
+
+Deuxième tranche de la phase 4 : l'enseignant cadre l'usage des postes
+pendant la séance. Elle s'appuie sur la séance minimale (1.2) et reprend
+le prototype `sans-admin` (2.1). Version 0.2.0, protocole 2 : un agent
+de la tranche 1 est refusé par la console avec le motif « version
+incompatible ».
+
+**Règles couvertes** : MAIT-1, MAIT-2, MAIT-3 (affichage du mode),
+MAIT-4 (consignation) ; ECRAN-1 à ECRAN-4 ; WEB-1 à WEB-4 ; APP-1 à
+APP-5 ; EXAM-1 à EXAM-3 ; PERSO-3 côté agent ; MODE-1 à MODE-6 (mode
+sans droits d'administration) ; RESTR-1 à RESTR-4, DEMAR-2 ; SEL-3,
+RETOUR-1 à RETOUR-3. Hors de la tranche : EXAM-4 (rendus, chap. 3),
+analyse par l'IA et conversation en examen (chap. 4 et 5), EXAM-5 et
+SEL-4 tant qu'il n'y a pas de poste personnel, journal d'audit
+consultable (chap. 6 et 8), mode « déployé par l'établissement ».
+
+**Un état déclaratif par poste** (`crates/surveo-protocol`). La console
+envoie à chaque poste l'état complet de ses restrictions, `Restrict`
+{pause et son message, filtrage web, applications interdites, mode
+examen avec sa durée restante et ses sites}, à chaque changement et à
+chaque reconnexion, après `Session` ; le poste applique la différence.
+Autres messages : `ListApps` et la réponse `Apps`, `CloseApp` ; `Status`
+porte en plus l'état du filtrage (éteint, en place, quitté par l'élève,
+impossible avec son motif). Un site de liste couvre ses sous-domaines ;
+ce que l'enseignant écrit (`https://www.Wikipedia.org/wiki`) est ramené
+au nom du site (`wikipedia.org`).
+
+**La console** (`apps/console/src/engine.rs`) garde les restrictions
+avec la séance (`seance.json`), chacune en deux couches : la valeur de
+toute la salle, et celle des postes d'une sélection. Une action sans
+sélection fixe la valeur de la salle, qui vaut aussi pour un poste
+rejoignant la séance plus tard (SEL-2) ; avec une sélection, elle ne vise
+que ces postes (MAIT-2). Le mode examen est un état de la séance, avec
+son heure de fin, au plus tard celle de la séance : raccourcir la séance
+le raccourcit, et la console le lève à son heure.
+
+- Chaque action donne son retour poste par poste ; un poste absent est
+  « en attente, appliqué à son retour » (RETOUR-1, RETOUR-2). Le retour
+  porte « Annuler », qui rétablit l'état d'avant tant qu'aucune autre
+  action n'a suivi (RETOUR-3).
+- Chaque restriction est consignée dans `journal.jsonl` : qui, quoi,
+  quand, salle, séance, postes visés (MAIT-4).
+- Les listes de sites et d'applications de l'enseignant sont dans
+  `listes.json` (WEB-4, APP-4) ; une liste de sites sert aussi bien
+  d'autorisation que de blocage.
+- Sorties de restriction (MODE-3, MODE-5) : un poste qui annonce son
+  filtrage quitté donne une alerte et un message ; un poste restreint
+  qui perd la connexion pendant la séance donne une alerte, complétée
+  par l'heure de son retour.
+
+**L'agent** (`apps/agent/src/restrict.rs`) applique les restrictions et
+reste autonome : il les garde pendant une coupure (RESTR-2), lève le
+mode examen à sa propre échéance, et tout lève en quittant la séance.
+Toutes les deux secondes, il vérifie la fin de l'examen, les
+applications interdites et le réglage du proxy. Il ignore toute
+restriction sur un poste personnel (PERSO-3).
+
+- **Écran en pause** : une fenêtre plein écran par écran, au premier
+  plan, qui ne se ferme pas et reprend le premier plan chaque seconde ;
+  rien n'est fermé dessous (ECRAN-4). Message par défaut « Écran mis en
+  pause par {enseignant}. », ou celui de l'enseignant.
+- **Filtrage web** (`webfilter.rs`, repris de `sans-admin`) : proxy
+  local sur `127.0.0.1`, réglage de l'utilisateur par script PAC, servi
+  par l'agent (MODE-5) ; sous Linux seuls le mode et l'adresse du script
+  changent (`gsettings`), sous Windows le réglage WinINet
+  (`crates/surveo-platform/src/proxy.rs`). La politique change sans
+  toucher au réglage. Un site bloqué en HTTPS est refusé ; en HTTP, une
+  page dit pourquoi ; dans les deux cas l'élève reçoit « {site} n'est
+  pas accessible pendant la séance de {enseignant}. » (WEB-2), au plus
+  une fois par minute pour un même site et toutes les quatre secondes en
+  tout. Pendant l'examen, sa liste d'autorisation remplace le filtrage
+  du poste, qui revient ensuite.
+- **Journal de remise en état** (`remise-en-etat.json`) : le réglage
+  d'origine y est écrit avant d'être modifié, et effacé une fois rétabli.
+  Au démarrage, avant toute connexion, un journal resté là est rejoué
+  (RESTR-3, DEMAR-2). L'agent ne rétablit un réglage que s'il est encore
+  le sien : un réglage changé entre-temps par quelqu'un d'autre reste tel
+  quel (RESTR-4). Si l'élève remplace le réglage pendant la séance,
+  l'agent l'annonce (MODE-3) ; réappliquer le filtrage le repose.
+- **Applications** (`crates/surveo-platform/src/apps.rs`) : sous Linux,
+  les processus de l'utilisateur, rapprochés des lanceurs `.desktop`
+  (nom, exécutable, dossier de l'exécutable, Flatpak), ce qui marche sous
+  Wayland comme sous X11 ; sous Windows, les processus de la session et
+  leurs fenêtres, nommés par la description de l'exécutable. Les
+  programmes du bureau (barre des tâches, gestionnaire de fenêtres…),
+  l'agent et sa descendance ne sont jamais listés ni fermés (APP-3). Un
+  nom interdit désigne l'exécutable, ou des mots entiers du nom de
+  l'application : « minecraft » ferme « Minecraft Launcher ». Fermeture
+  polie (`SIGTERM`, `WM_CLOSE`), puis forcée quatre secondes plus tard.
+  L'élève reçoit « {application} a été fermée par {enseignant}. », une
+  fois par application et par demi-minute.
+- **Indicateur** : il énonce les restrictions en cours en mots simples,
+  sur une seconde ligne (« Web : seuls quelques sites sont ouverts ·
+  Applications interdites : Minecraft ») (MAIT-1) ; en examen, « Séance
+  d'examen en cours jusqu'à {heure}. » (EXAM-1).
+- **Fenêtres** (`apps/agent/src/main.rs`) : créées et fermées par un fil
+  à part, dans l'ordre des demandes. Une création peut prendre plusieurs
+  secondes (5 s mesurées dans l'environnement d'essai) et ne retarde ainsi
+  ni le proxy, ni les réponses à la console.
+
+**Interface de la console** (`ui/console`) :
+
+- Barre d'actions : « Pause » (ou « Reprendre » si tous les postes visés
+  sont en pause), avec messages proposés ; « Plus » : filtrage web,
+  applications interdites, applications ouvertes (un seul poste
+  sélectionné), mode examen, identifier (SEL-3). Menu court de la tuile :
+  mettre en pause ou reprendre, applications ouvertes.
+- Bandeaux des restrictions de toute la salle, chacun avec son geste
+  pour la lever : mode examen, écrans en pause, filtrage web,
+  applications interdites.
+- Tuile : marques des restrictions en cours avec leur nom (pause,
+  filtrage, applications interdites, filtrage quitté), fond hachuré en
+  pause (AFF-2) ; mode de déploiement dans l'infobulle.
+- Panneau : mode de déploiement des postes et ce qu'il garantit (MODE-2,
+  MODE-6) ; sorties de restriction.
+- Échap ferme d'abord la fenêtre d'action ouverte.
+
+**Interface de l'agent** (`ui/agent`) : écran en pause, notification
+discrète sous l'indicateur (huit secondes), indicateur sur deux lignes.
+
+**Tests** (`cargo test`, 57) : protocole (politique web, noms de
+sites, compatibilité des messages) ; moteur de la console (couches salle
+et sélection, poste qui rejoint, retour et annulation, consignation,
+postes absents servis à leur retour, examen borné par la séance et levé
+à son heure, sorties de restriction, listes) ; agent (journal et
+rétablissement, sortie de restriction et réapplication, réglage changé
+par ailleurs, arrêt brutal puis démarrage, examen qui remplace puis rend
+le filtrage, frein des notifications ; proxy local) ; plateforme
+(lanceurs, regroupement des processus, programme réel trouvé puis
+fermé) ; et la séance de bout en bout, étendue à la pause, au filtrage
+(site refusé, élève prévenu, sortie signalée, origine rétablie), aux
+applications interdites (programme réel fermé, élève prévenu), à la
+liste des applications ouvertes et au mode examen. Le réglage du proxy y
+est simulé (`MemoryProxy`).
+
+**Vérifié dans l'interface réelle** (31 octobre 2026, Fedora 44, écran X
+virtuel, console et trois agents sur le même poste ; chaque agent dans
+son propre bus D-Bus avec ses réglages `gsettings` à part, le premier
+avec un proxy manuel « du service informatique ») : pause d'un poste
+avec message, reprise et « Annuler » ; liste d'autorisation sur toute la
+salle : script PAC posé par chaque agent, Wikipédia accessible par le
+proxy, YouTube refusé, page HTTP explicative, notification à l'élève ;
+arrêt brutal d'un agent puis relance : origine rétablie avant la
+connexion, puis filtrage reposé ; faux jeu (`minecraft`) fermé dès son
+lancement et à chaque relance ; liste des applications ouvertes ; mode
+examen : bandeau, indicateur « Séance d'examen en cours », Wikipédia
+bloqué ; fin d'elle-même de l'examen puis de la séance, proxy d'origine
+de chaque poste rétabli à l'identique ; clôture par-dessus une pause :
+écrans de pause et indicateurs retirés.
+
+Trois défauts trouvés ainsi et corrigés : la fenêtre « Applications
+ouvertes » redemandait la liste à chaque mise à jour de l'état, en
+boucle, ce qui saturait la file du poste au relais et lui a fait perdre
+une commande ; le proxy attendait l'affichage de la notification avant
+de répondre (5 s) ; une alerte « connexion perdue » restait sans suite
+après le retour du poste.
+
+**Limites, à éprouver en salle**
+
+- Windows : proxy WinINet, applications (fenêtres, description de
+  l'exécutable, fermeture) et écran en pause compilés, pas encore lancés.
+- Sans droits d'administration, la maîtrise est coopérative : un élève
+  peut quitter l'écran en pause (Alt+Tab) ; il reprend le premier plan
+  chaque seconde. Sous Wayland, le bureau peut ne pas le garder au
+  premier plan.
+- Linux : seul le réglage GNOME du proxy est posé ; sous KDE (réglage
+  `kioslaverc`) et COSMIC, le comportement des navigateurs reste à
+  vérifier. Un navigateur réglé sur son propre proxy, ou un programme
+  qui ignore celui du système, n'est pas filtré (MODE-6).
+- Un agent arrêté proprement (fin de session) ne rétablit pas le
+  réglage : le script PAC devenu injoignable laisse passer le web, et le
+  démarrage suivant rétablit l'origine.
+- En mode PAC, des requêtes de fond des navigateurs vers des sites
+  bloqués peuvent donner des notifications sans geste de l'élève : à
+  observer en salle.
+- Une application interdite est reconnue par son nom ; un jeu lancé
+  sous un nom d'exécutable générique (`javaw`) n'est fermé que si
+  l'enseignant nomme cet exécutable.
+- Une commande perdue par le relais (file d'un poste saturée) n'est pas
+  renvoyée avant la reconnexion du poste ; l'état déclaratif rend un
+  renvoi périodique possible si le cas se présente.
+- Plusieurs écrans : une fenêtre de pause par écran, non vérifié avec
+  plusieurs écrans réels.
 
 ## 5. IA
 

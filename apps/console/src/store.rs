@@ -5,14 +5,16 @@
 //! | `etablissement.json` | clé d'établissement (secret, CONF-1) |
 //! | `console.json` | enseignant, identités de la console et du relais intégré (secret) |
 //! | `salles.json` | salles, postes et plans (SALLE-2, SALLE-3) |
-//! | `seance.json` | séance ouverte, pour la reprendre si la console redémarre |
+//! | `seance.json` | séance ouverte et ses restrictions, pour la reprendre si la console redémarre |
+//! | `listes.json` | listes de sites et d'applications de l'enseignant (WEB-4, APP-4) |
+//! | `journal.jsonl` | restrictions appliquées, une par ligne (MAIT-4) |
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use surveo_identity::{load_json, save_json, EstablishmentFile, IdentityFile};
-use surveo_protocol::{MemberId, RoomId, SessionId};
+use surveo_protocol::{MemberId, RoomId, SessionId, WebPolicy};
 
 /// Ce que la console sait d'elle-même.
 #[derive(Serialize, Deserialize, Clone)]
@@ -51,6 +53,94 @@ pub struct Room {
     pub stations: Vec<Station>,
 }
 
+/// Valeur d'une restriction pour toute la salle, et pour les postes d'une
+/// sélection (IMPL.md, 2.2) : un poste qui rejoint la séance plus tard
+/// reçoit la valeur de la salle.
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+pub struct Layer<T> {
+    pub all: T,
+    #[serde(default)]
+    pub some: BTreeMap<MemberId, T>,
+}
+
+impl<T: Clone + PartialEq> Layer<T> {
+    pub fn get(&self, member: &str) -> &T {
+        self.some.get(member).unwrap_or(&self.all)
+    }
+
+    /// Sans poste désigné, toute la salle.
+    pub fn set(&mut self, members: &[MemberId], v: T) {
+        if members.is_empty() {
+            self.all = v;
+            self.some.clear();
+            return;
+        }
+        for m in members {
+            if v == self.all {
+                self.some.remove(m);
+            } else {
+                self.some.insert(m.clone(), v.clone());
+            }
+        }
+    }
+}
+
+/// Mode examen de la séance (SPEC.md, EXAM-1 à EXAM-3).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ExamState {
+    pub end_ms: u64,
+    /// Liste d'autorisation de l'examen, vide par défaut (EXAM-2).
+    pub sites: Vec<String>,
+}
+
+/// Restrictions de la séance (SPEC.md, chap. 2).
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+pub struct SessionRestrictions {
+    /// Message de l'écran en pause (ECRAN-2).
+    pub pause: Layer<Option<String>>,
+    pub web: Layer<Option<WebPolicy>>,
+    /// Applications interdites (APP-2).
+    pub apps: Layer<Vec<String>>,
+    pub exam: Option<ExamState>,
+}
+
+/// Liste de sites réutilisable (WEB-4).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, ts_rs::TS)]
+#[ts(export)]
+pub struct SiteList {
+    pub name: String,
+    pub sites: Vec<String>,
+}
+
+/// Liste d'applications interdites réutilisable (APP-4).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, ts_rs::TS)]
+#[ts(export)]
+pub struct AppList {
+    pub name: String,
+    pub apps: Vec<String>,
+}
+
+/// Listes de l'enseignant, qui le suivent d'une salle à l'autre (WEB-4,
+/// APP-4).
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq, ts_rs::TS)]
+#[ts(export)]
+pub struct Lists {
+    pub sites: Vec<SiteList>,
+    pub apps: Vec<AppList>,
+}
+
+/// Une restriction consignée (MAIT-4) : qui, quoi, quand, où.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct JournalEntry {
+    pub at_ms: u64,
+    pub teacher: String,
+    pub room: String,
+    pub session: SessionId,
+    /// Toute la salle, ou les postes visés.
+    pub target: String,
+    pub action: String,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Session {
     pub id: SessionId,
@@ -64,6 +154,8 @@ pub struct Session {
     /// Postes entrés dans la séance, pour le récapitulatif de clôture
     /// (RESTR-5).
     pub members: BTreeSet<MemberId>,
+    #[serde(default)]
+    pub restrictions: SessionRestrictions,
 }
 
 pub struct Store {
@@ -97,6 +189,23 @@ impl Store {
 
     pub fn save_rooms(&self, r: &[Room]) -> Result<()> {
         save_json(&self.dir.join("salles.json"), &r, false)
+    }
+
+    pub fn lists(&self) -> Lists {
+        load_json(&self.dir.join("listes.json")).unwrap_or_default()
+    }
+
+    pub fn save_lists(&self, l: &Lists) -> Result<()> {
+        save_json(&self.dir.join("listes.json"), l, false)
+    }
+
+    /// Ajoute une ligne au journal des restrictions (MAIT-4).
+    pub fn append_journal(&self, e: &JournalEntry) -> Result<()> {
+        use std::io::Write;
+        std::fs::create_dir_all(&self.dir)?;
+        let mut f = std::fs::OpenOptions::new().create(true).append(true).open(self.dir.join("journal.jsonl"))?;
+        writeln!(f, "{}", serde_json::to_string(e)?)?;
+        Ok(())
     }
 
     pub fn session(&self) -> Option<Session> {

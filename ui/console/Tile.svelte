@@ -1,11 +1,13 @@
 <script lang="ts">
   // Tuile d'un poste (SPEC.md, AFF-2) : numéro, état toujours écrit en
-  // toutes lettres (ACCES-4), libellé, et l'image de l'écran quand
-  // l'enseignant affiche les écrans (AFF-4). Un clic sélectionne (SEL-1) ;
-  // le menu court porte les actions propres au poste (SEL-5).
+  // toutes lettres (ACCES-4), libellé, restrictions en cours, et l'image
+  // de l'écran quand l'enseignant affiche les écrans (AFF-4). Un clic
+  // sélectionne (SEL-1) ; le menu court porte les actions propres au
+  // poste (SEL-5).
   import Icon from '$shared/Icon.svelte';
   import type { StationView } from '$shared/bindings/StationView';
   import { ui, selection, thumbs, call } from './store.svelte';
+  import { outside } from './outside';
 
   let {
     station,
@@ -36,9 +38,33 @@
     else selection.add(station.member);
   }
 
+  /** Restrictions en cours, avec leur icône et leur nom (ACCES-4). */
+  const flags = $derived.by(() => {
+    const f: { icon: 'pause' | 'globe' | 'appx' | 'wifioff'; text: string; warn?: boolean }[] = [];
+    if (station.state === 'off') return f;
+    if (station.pause !== null) f.push({ icon: 'pause', text: 'Écran en pause' });
+    if (station.web_state.t === 'escaped') f.push({ icon: 'wifioff', text: 'Sorti du filtrage web', warn: true });
+    else if (station.web_state.t === 'unavailable') f.push({ icon: 'wifioff', text: `Filtrage impossible : ${station.web_state.reason}`, warn: true });
+    else if (station.web !== null) f.push({ icon: 'globe', text: 'Filtrage web' });
+    if (station.banned_apps.length) f.push({ icon: 'appx', text: `Applications interdites : ${station.banned_apps.join(', ')}` });
+    return f;
+  });
+
   function identify() {
     menu = false;
     call('identify', { members: [station.member] });
+  }
+
+  function openApps() {
+    menu = false;
+    selection.clear();
+    selection.add(station.member);
+    ui.pop = 'open-apps';
+  }
+
+  function pause() {
+    menu = false;
+    call('set_pause', { members: [station.member], message: station.pause === null ? '' : null });
   }
 </script>
 
@@ -47,13 +73,23 @@
     type="button"
     class="tile st-{station.state}"
     class:sel={selected}
+    class:paused={station.pause !== null}
     aria-pressed={selected}
     draggable="true"
     {ondragstart}
     onclick={click}
-    title={station.os ? `${station.label} · ${station.os}` : station.label}
+    title={[station.label, station.os, station.mode === 'sans_admin' ? 'sans droits d’administration' : station.mode === 'etablissement' ? 'déployé par l’établissement' : null]
+      .filter(Boolean)
+      .join(' · ')}
   >
-    <span class="t-num mono">{station.number}</span>
+    <span class="t-head">
+      <span class="t-num mono">{station.number}</span>
+      {#if flags.length}
+        <span class="t-flags">
+          {#each flags as f}<span class="flag" class:warn={f.warn} title={f.text}><Icon name={f.icon} size={12} /><span class="sr">{f.text}</span></span>{/each}
+        </span>
+      {/if}
+    </span>
     <span class="t-label">{station.label}</span>
     <span class="t-state">
       <Icon name={station.state === 'off' ? 'power' : station.state === 'in_session' ? 'check' : 'minus'} size={13} />
@@ -70,11 +106,17 @@
     {/if}
     {#if onplacehere}<span class="swap">Échanger les places</span>{/if}
   </button>
-  <button type="button" class="more" aria-label={`Actions du poste ${station.number}`} aria-expanded={menu} onclick={() => (menu = !menu)}>
+  <button type="button" class="more" data-pop-toggle aria-label={`Actions du poste ${station.number}`} aria-expanded={menu} onclick={() => (menu = !menu)}>
     <Icon name="chev" size={14} />
   </button>
   {#if menu}
-    <div class="menu" role="menu">
+    <div class="menu" role="menu" use:outside={() => (menu = false)}>
+      {#if inSession && station.state === 'in_session'}
+        <button role="menuitem" onclick={pause}>
+          <Icon name={station.pause === null ? 'pause' : 'play'} size={15} />{station.pause === null ? 'Mettre en pause' : 'Reprendre l’écran'}
+        </button>
+        <button role="menuitem" data-pop-toggle onclick={openApps}><Icon name="appx" size={15} />Applications ouvertes…</button>
+      {/if}
       <button role="menuitem" onclick={identify} disabled={station.state === 'off'}><Icon name="target" size={15} />Identifier</button>
       <button role="menuitem" onclick={() => { menu = false; ui.placing = station.member; }}><Icon name="room" size={15} />Déplacer</button>
       <button role="menuitem" onclick={() => { menu = false; call('unplace', { member: station.member }); }}><Icon name="x" size={15} />Retirer du plan</button>
@@ -91,9 +133,16 @@
   }
   .tile:hover { border-color: var(--muted); }
   .tile.sel { outline: 2.5px solid var(--accent); outline-offset: 1px; background: var(--accent-soft); }
+  .tile { position: relative; }
   .tile.st-off { background: transparent; border-style: dashed; color: var(--muted); }
   .tile.st-on { background: var(--surface-2); color: var(--muted); }
+  .t-head { display: flex; align-items: center; gap: 6px; padding-right: 18px; }
   .t-num { font-weight: 600; font-size: 17px; color: var(--ink); line-height: 1.2; }
+  .t-flags { display: flex; gap: 3px; flex-wrap: wrap; }
+  .flag { display: inline-flex; align-items: center; padding: 2px 5px; border-radius: 99px; background: var(--restrict-soft); color: var(--restrict); }
+  .flag.warn { background: var(--late-soft); color: var(--late); }
+  .tile.paused { background: repeating-linear-gradient(135deg, var(--restrict-soft) 0 7px, var(--surface) 7px 14px); }
+  .tile.sel.paused { background: repeating-linear-gradient(135deg, var(--restrict-soft) 0 7px, var(--accent-soft) 7px 14px); }
   .st-off .t-num { color: var(--muted); }
   .t-state { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; margin-top: auto; }
   .st-in_session .t-state { color: var(--ok); }

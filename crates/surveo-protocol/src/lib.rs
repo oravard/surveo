@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 /// Version du protocole, échangée à l'authentification. Un pair d'une
 /// autre version est refusé avec un motif explicite.
-pub const PROTOCOL_VERSION: u16 = 1;
+pub const PROTOCOL_VERSION: u16 = 2;
 
 /// Port UDP de la recherche du relais sur le réseau local (SPEC.md,
 /// DECOUV-1, niveau 3).
@@ -87,6 +87,82 @@ pub struct SessionInfo {
     pub margin_ms: u64,
 }
 
+/// Filtrage web d'un poste (SPEC.md, WEB-1).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+#[serde(tag = "t", rename_all = "snake_case")]
+pub enum WebPolicy {
+    /// Seuls ces sites sont accessibles (liste d'autorisation).
+    Allow { sites: Vec<String> },
+    /// Ces sites sont bloqués, le reste est accessible (liste de blocage).
+    Block { sites: Vec<String> },
+    /// Aucun site accessible.
+    All,
+}
+
+impl WebPolicy {
+    /// Le site `host` est-il accessible ? Un site de la liste couvre aussi
+    /// ses sous-domaines : `wikipedia.org` couvre `fr.wikipedia.org`.
+    pub fn allows(&self, host: &str) -> bool {
+        let host = host.trim_end_matches('.').to_ascii_lowercase();
+        let listed = |l: &[String]| l.iter().any(|d| host == *d || host.strip_suffix(d.as_str()).is_some_and(|p| p.ends_with('.')));
+        match self {
+            WebPolicy::Allow { sites } => listed(sites),
+            WebPolicy::Block { sites } => !listed(sites),
+            WebPolicy::All => false,
+        }
+    }
+}
+
+/// Ramène ce que l'enseignant écrit (« https://www.Wikipedia.org/wiki »)
+/// au nom du site (« wikipedia.org ») ; rien si ce n'est pas un nom de
+/// site.
+pub fn normalize_site(s: &str) -> Option<String> {
+    let s = s.trim().to_ascii_lowercase();
+    let s = s.split_once("://").map_or(s.as_str(), |(_, r)| r);
+    let s = s.split(['/', '?', '#']).next().unwrap_or("");
+    let s = s.rsplit_once('@').map_or(s, |(_, h)| h);
+    let s = s.split(':').next().unwrap_or("");
+    let s = s.trim_start_matches("*.").trim_start_matches("www.").trim_end_matches('.');
+    let ok = !s.is_empty() && s.contains('.') && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.');
+    ok.then(|| s.to_string())
+}
+
+/// Mode examen (SPEC.md, EXAM-1 à EXAM-3) : il a sa propre liste
+/// d'autorisation, qui remplace le filtrage web du poste, et sa propre
+/// échéance, en durée restante comme la séance.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Exam {
+    pub remaining_ms: u64,
+    pub sites: Vec<String>,
+}
+
+/// État complet des restrictions demandées à un poste (SPEC.md, chap. 2).
+/// La console le renvoie à chaque changement et à chaque reconnexion ;
+/// le poste applique la différence (IMPL.md, 2.2).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
+pub struct Restrictions {
+    /// Écran en pause, avec le message affiché (ECRAN-1, ECRAN-2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pause: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub web: Option<WebPolicy>,
+    /// Applications interdites, nommées par l'enseignant (APP-2, APP-3).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub banned_apps: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exam: Option<Exam>,
+}
+
+/// Une application ouverte sur un poste (APP-1). `id` la désigne pour la
+/// fermer ; `name` est ce que l'enseignant et l'élève lisent.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct OpenApp {
+    pub id: String,
+    pub name: String,
+}
+
 /// Demande d'une console à des postes.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(tag = "t", rename_all = "snake_case")]
@@ -102,6 +178,13 @@ pub enum Command {
     Screens { on: bool },
     /// Afficher un grand numéro pendant quelques secondes (SALLE-4).
     Identify { number: String, seconds: u32 },
+    /// Restrictions du poste dans cette séance (chap. 2).
+    Restrict { session: SessionId, restrictions: Restrictions },
+    /// Dire quelles applications sont ouvertes (APP-1) : le poste répond
+    /// par [`AgentMsg::Apps`].
+    ListApps,
+    /// Fermer une application ouverte (APP-1).
+    CloseApp { app: String },
 }
 
 /// À qui une console adresse une commande.
@@ -144,6 +227,21 @@ pub enum ScreenState {
     Unavailable { reason: String },
 }
 
+/// État du filtrage web sur un poste.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+#[serde(tag = "t", rename_all = "snake_case")]
+pub enum WebState {
+    #[default]
+    Off,
+    On,
+    /// Le réglage posé par l'agent a été changé sur le poste : l'élève
+    /// est sorti de la restriction (MODE-3).
+    Escaped,
+    /// Filtrage impossible sur ce poste, avec le motif.
+    Unavailable { reason: String },
+}
+
 /// Agent → relais → consoles.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(tag = "t", rename_all = "snake_case")]
@@ -156,7 +254,14 @@ pub enum AgentMsg {
         detail: Option<String>,
     },
     /// État du poste, envoyé à la connexion et à chaque changement.
-    Status { session: Option<SessionId>, screen: ScreenState },
+    Status {
+        session: Option<SessionId>,
+        screen: ScreenState,
+        #[serde(default)]
+        web: WebState,
+    },
+    /// Applications ouvertes, en réponse à [`Command::ListApps`] `id`.
+    Apps { id: u64, apps: Vec<OpenApp> },
 }
 
 /// Relais → console.
@@ -249,5 +354,29 @@ mod tests {
         assert_eq!(serde_json::from_str::<FromConsole>(&s).unwrap(), m);
         let all = serde_json::to_string(&Target::All).unwrap();
         assert_eq!(all, r#""all""#);
+        // Un poste de la tranche 1 n'envoie pas l'état du filtrage.
+        let old: AgentMsg = serde_json::from_str(r#"{"t":"status","session":null,"screen":{"t":"off"}}"#).unwrap();
+        assert_eq!(old, AgentMsg::Status { session: None, screen: ScreenState::Off, web: WebState::Off });
+        let none = serde_json::to_string(&Restrictions::default()).unwrap();
+        assert_eq!(none, "{}");
+    }
+
+    #[test]
+    fn web_policy_covers_subdomains_only() {
+        let allow = WebPolicy::Allow { sites: vec!["wikipedia.org".into()] };
+        assert!(allow.allows("wikipedia.org") && allow.allows("FR.Wikipedia.org."));
+        assert!(!allow.allows("notwikipedia.org") && !allow.allows("wikipedia.org.evil.fr"));
+        let block = WebPolicy::Block { sites: vec!["youtube.com".into()] };
+        assert!(!block.allows("www.youtube.com") && block.allows("education.gouv.fr"));
+        assert!(!WebPolicy::All.allows("education.gouv.fr"));
+    }
+
+    #[test]
+    fn sites_are_normalized() {
+        assert_eq!(normalize_site(" https://www.Wikipedia.org/wiki/Réseau ").as_deref(), Some("wikipedia.org"));
+        assert_eq!(normalize_site("*.netacad.com:443").as_deref(), Some("netacad.com"));
+        assert_eq!(normalize_site("http://user@cisco.com").as_deref(), Some("cisco.com"));
+        assert_eq!(normalize_site("localhost"), None);
+        assert_eq!(normalize_site("pas un site"), None);
     }
 }

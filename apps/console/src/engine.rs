@@ -6,7 +6,7 @@
 //! commandes par un [`Link`]. Il est appelé toutes les secondes par
 //! [`Engine::tick`] pour les échéances.
 
-use crate::store::{Pos, Profile, Room, Session, Station, Store};
+use crate::store::{AppList, ExamState, JournalEntry, Lists, Pos, Profile, Room, Session, SessionRestrictions, SiteList, Station, Store};
 use crate::view::*;
 use crate::*;
 use anyhow::{anyhow, bail, ensure, Result};
@@ -30,6 +30,7 @@ struct Online {
     presence: AgentPresence,
     session: Option<SessionId>,
     screen: ScreenState,
+    web: WebState,
 }
 
 /// Action envoyée à plusieurs postes, en attente de leurs réponses
@@ -42,7 +43,29 @@ struct Pending {
     refused: Vec<(MemberId, String)>,
     /// Postes absents au moment de l'envoi.
     offline: Vec<MemberId>,
+    /// Les postes absents recevront l'action à leur retour (RETOUR-2).
+    deferred: bool,
+    /// Retour quand tous les postes ont répondu, à la place du décompte.
+    done_text: Option<String>,
+    /// L'action peut être annulée (RETOUR-3).
+    undo: Option<u64>,
     deadline_ms: u64,
+}
+
+impl Pending {
+    fn new(label: impl Into<String>, deadline_ms: u64) -> Self {
+        Self {
+            label: label.into(),
+            ids: BTreeMap::new(),
+            acked: BTreeSet::new(),
+            refused: vec![],
+            offline: vec![],
+            deferred: false,
+            done_text: None,
+            undo: None,
+            deadline_ms,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -50,6 +73,15 @@ enum Restore {
     Pending,
     Restored,
     Unreachable,
+}
+
+/// Sortie de restriction signalée à l'enseignant (MODE-3, MODE-5).
+struct Exit {
+    at_ms: u64,
+    member: MemberId,
+    /// Connexion perdue, et l'heure du retour du poste ; sinon, filtrage
+    /// coupé sur le poste.
+    lost: Option<Option<u64>>,
 }
 
 /// Remise en état des postes après la clôture (RESTR-5).
@@ -73,6 +105,14 @@ pub struct Engine {
     pending: Vec<Pending>,
     closure: Option<Closure>,
     refused: VecDeque<String>,
+    /// Sorties de restriction et pertes de connexion d'un poste restreint
+    /// (MODE-3, MODE-5).
+    alerts: VecDeque<Exit>,
+    /// Restrictions d'avant la dernière action, pour « Annuler » (RETOUR-3).
+    undo: Option<(u64, SessionRestrictions)>,
+    lists: Lists,
+    /// Dernière liste des applications ouvertes de chaque poste (APP-1).
+    apps: HashMap<MemberId, Vec<OpenApp>>,
     link: Option<Box<dyn Link>>,
     next_id: u64,
     /// État du relais intégré, tenu par l'application.
@@ -82,6 +122,41 @@ pub struct Engine {
 
 fn plural(n: usize, word: &str) -> String {
     format!("{n} {word}{}", if n > 1 { "s" } else { "" })
+}
+
+fn capitalize(s: &str) -> String {
+    let mut c = s.chars();
+    c.next().map(|f| f.to_uppercase().chain(c).collect()).unwrap_or_default()
+}
+
+fn dedup(v: Vec<String>) -> Vec<String> {
+    let mut seen = BTreeSet::new();
+    v.into_iter().filter(|x| seen.insert(x.to_lowercase())).collect()
+}
+
+/// Sites d'une liste, ramenés à leur nom (WEB-1) ; au moins un.
+fn sites_list(sites: &[String]) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for x in sites.iter().filter(|x| !x.trim().is_empty()) {
+        out.push(normalize_site(x).ok_or_else(|| anyhow!("« {} » n'est pas un nom de site.", x.trim()))?);
+    }
+    ensure!(!out.is_empty(), "Indiquez au moins un site.");
+    Ok(dedup(out))
+}
+
+/// Noms d'applications tels que l'enseignant les écrit, sans doublon.
+fn names_list(names: &[String]) -> Vec<String> {
+    dedup(names.iter().map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect())
+}
+
+/// « wikipedia.org et cisco.com », « 4 sites (wikipedia.org…) ».
+fn sites_text(sites: &[String]) -> String {
+    match sites {
+        [a] => a.clone(),
+        [a, b] => format!("{a} et {b}"),
+        [a, ..] => format!("{} sites ({a}…)", sites.len()),
+        [] => "aucun site".into(),
+    }
 }
 
 impl Engine {
@@ -96,6 +171,7 @@ impl Engine {
             store.save_session(None)?;
         }
         let room = session.as_ref().map(|s| s.room.clone()).or_else(|| rooms.first().map(|r| r.id.clone()));
+        let lists = store.lists();
         Ok(Self {
             store,
             etab,
@@ -107,6 +183,10 @@ impl Engine {
             pending: Vec::new(),
             closure: None,
             refused: VecDeque::new(),
+            alerts: VecDeque::new(),
+            undo: None,
+            lists,
+            apps: HashMap::new(),
             link: None,
             next_id: 1,
             relay: RelayView::default(),
@@ -155,7 +235,12 @@ impl Engine {
     }
 
     fn notice(&mut self, text: impl Into<String>, detail: Option<String>, warning: bool) {
-        self.notices.push(Notice { text: text.into(), detail, warning });
+        self.notices.push(Notice { text: text.into(), detail, warning, undo: None });
+    }
+
+    fn alert(&mut self, now: u64, member: &str, lost: bool) {
+        self.alerts.push_front(Exit { at_ms: now, member: member.into(), lost: lost.then_some(None) });
+        self.alerts.truncate(20);
     }
 
     fn send(&mut self, to: Target, cmd: Command) -> u64 {
@@ -180,6 +265,13 @@ impl Engine {
             ToConsole::Online { agent } => self.agent_online(agent, now),
             ToConsole::Offline { member } => {
                 self.online.remove(&member);
+                self.apps.remove(&member);
+                // Sans droits d'administration, un agent arrêté ne restreint
+                // plus rien : la console le signale (MODE-5).
+                let restricted = self.session.as_ref().is_some_and(|s| s.members.contains(&member) && Self::restrictions_for(&s.restrictions, &member, now) != Restrictions::default());
+                if restricted {
+                    self.alert(now, &member, true);
+                }
             }
             ToConsole::FromAgent { from, msg: AgentMsg::Ack { id, ok, detail } } => {
                 for p in &mut self.pending {
@@ -192,7 +284,10 @@ impl Engine {
                     }
                 }
             }
-            ToConsole::FromAgent { from, msg: AgentMsg::Status { session, screen } } => self.agent_status(&from, session, screen),
+            ToConsole::FromAgent { from, msg: AgentMsg::Status { session, screen, web } } => self.agent_status(&from, session, screen, web, now),
+            ToConsole::FromAgent { from, msg: AgentMsg::Apps { apps, .. } } => {
+                self.apps.insert(from, apps);
+            }
             ToConsole::Refused { peer, reason } => {
                 self.refused.push_front(format!("{peer} : {reason}"));
                 self.refused.truncate(10);
@@ -225,20 +320,41 @@ impl Engine {
         }
         let member = a.member.clone();
         let in_room = self.session.as_ref().is_some_and(|s| a.room.as_ref() == Some(&s.room));
-        self.online.insert(member.clone(), Online { presence: a, session: None, screen: ScreenState::Off });
+        // Retour d'un poste qui avait perdu la connexion pendant la séance.
+        if let Some(e) = self.alerts.iter_mut().find(|e| e.member == member && e.lost == Some(None)) {
+            e.lost = Some(Some(now));
+        }
+        self.online.insert(member.clone(), Online { presence: a, session: None, screen: ScreenState::Off, web: WebState::Off });
         if in_room {
-            let to = Target::Members(vec![member]);
+            let to = Target::Members(vec![member.clone()]);
             self.send_session(to.clone(), now);
             if self.session.as_ref().is_some_and(|s| s.screens) {
-                self.send(to, Command::Screens { on: true });
+                self.send(to.clone(), Command::Screens { on: true });
+            }
+            // Le poste réapplique les restrictions de la séance (RESTR-3).
+            if let Some(cmd) = self.restrict_cmd(&member, now) {
+                self.send(to, cmd);
             }
         }
     }
 
-    fn agent_status(&mut self, from: &str, session: Option<SessionId>, screen: ScreenState) {
+    fn agent_status(&mut self, from: &str, session: Option<SessionId>, screen: ScreenState, web: WebState, now: u64) {
         let Some(o) = self.online.get_mut(from) else { return };
         o.session = session.clone();
         o.screen = screen;
+        let escaped = web == WebState::Escaped && o.web != WebState::Escaped;
+        o.web = web;
+        // L'élève a coupé le filtrage de sa session : la console le dit
+        // plutôt que de le masquer (MODE-3).
+        if escaped {
+            let name = self.station_name(from);
+            self.alert(now, from, false);
+            self.notice(
+                format!("{} : sorti du filtrage web", capitalize(&name)),
+                Some("Le réglage posé par Surveo a été modifié sur le poste. Réappliquez le filtrage pour le rétablir.".into()),
+                true,
+            );
+        }
         let current = self.session.as_ref().map(|s| s.id.clone());
         match &session {
             Some(sid) if Some(sid) == current.as_ref() => {
@@ -352,8 +468,19 @@ impl Engine {
             "Une séance ne peut pas dépasser {} h, prolongations comprises.",
             MAX_DURATION_MS / 3_600_000
         );
-        self.session = Some(Session { id: random_id(), room: room.clone(), teacher, opened_at_ms: now, end_ms, screens: false, members: BTreeSet::new() });
+        self.session = Some(Session {
+            id: random_id(),
+            room: room.clone(),
+            teacher,
+            opened_at_ms: now,
+            end_ms,
+            screens: false,
+            members: BTreeSet::new(),
+            restrictions: SessionRestrictions::default(),
+        });
         self.closure = None;
+        self.alerts.clear();
+        self.undo = None;
         self.save_session();
         self.send_session(Target::Room(room), now);
         Ok(())
@@ -371,9 +498,20 @@ impl Engine {
             MAX_DURATION_MS / 3_600_000
         );
         s.end_ms = end_ms;
+        // Le mode examen s'arrête au plus tard à la fin de la séance (EXAM-3).
+        let clamped = match &mut s.restrictions.exam {
+            Some(e) if e.end_ms > end_ms => {
+                e.end_ms = end_ms;
+                true
+            }
+            _ => false,
+        };
         let room = s.room.clone();
         self.save_session();
         self.send_session(Target::Room(room), now);
+        if clamped {
+            self.resend_restrictions(now);
+        }
         Ok(())
     }
 
@@ -435,6 +573,233 @@ impl Engine {
         }
     }
 
+    // --- Restrictions (SPEC.md, chap. 2) -----------------------------------
+
+    /// Restrictions d'un poste dans la séance, telles que le poste les
+    /// reçoit : la valeur de sa sélection, sinon celle de la salle.
+    fn restrictions_for(r: &SessionRestrictions, member: &str, now: u64) -> Restrictions {
+        Restrictions {
+            pause: r.pause.get(member).clone(),
+            web: r.web.get(member).clone(),
+            banned_apps: r.apps.get(member).clone(),
+            exam: r.exam.as_ref().filter(|e| e.end_ms > now).map(|e| Exam { remaining_ms: e.end_ms - now, sites: e.sites.clone() }),
+        }
+    }
+
+    fn restrict_cmd(&self, member: &str, now: u64) -> Option<Command> {
+        let s = self.session.as_ref()?;
+        Some(Command::Restrict { session: s.id.clone(), restrictions: Self::restrictions_for(&s.restrictions, member, now) })
+    }
+
+    /// Postes visés par une action de la séance : la sélection, ou sans
+    /// sélection les postes de la salle présents ou entrés dans la séance
+    /// (SEL-2).
+    fn session_targets(&self, members: &[MemberId]) -> Vec<MemberId> {
+        let Some(s) = &self.session else { return vec![] };
+        if !members.is_empty() {
+            return members.to_vec();
+        }
+        let mut all: BTreeSet<MemberId> = s.members.clone();
+        all.extend(self.online.iter().filter(|(_, o)| o.presence.room.as_ref() == Some(&s.room)).map(|(m, _)| m.clone()));
+        all.into_iter().collect()
+    }
+
+    /// Applique un changement des restrictions de la séance, l'envoie aux
+    /// postes concernés et le consigne (MAIT-2, MAIT-4) ; l'action peut
+    /// être annulée (RETOUR-3).
+    fn restrict(&mut self, label: String, members: &[MemberId], now: u64, change: impl FnOnce(&mut SessionRestrictions)) -> Result<()> {
+        let s = self.session.as_mut().ok_or_else(|| anyhow!("Les restrictions ne s'appliquent que pendant une séance."))?;
+        let before = s.restrictions.clone();
+        change(&mut s.restrictions);
+        let undo = self.next_id;
+        self.next_id += 1;
+        self.undo = Some((undo, before));
+        self.save_session();
+        self.journal(&label, members, now);
+        let targets = self.session_targets(members);
+        self.send_restrictions(label, targets, now, Some(undo));
+        Ok(())
+    }
+
+    fn send_restrictions(&mut self, label: String, targets: Vec<MemberId>, now: u64, undo: Option<u64>) {
+        let mut p = Pending::new(label, now + ACK_TIMEOUT_MS);
+        p.deferred = true;
+        p.undo = undo;
+        for m in targets {
+            match self.restrict_cmd(&m, now) {
+                Some(cmd) if self.online.contains_key(&m) => {
+                    let id = self.send(Target::Members(vec![m.clone()]), cmd);
+                    p.ids.insert(id, m);
+                }
+                _ => p.offline.push(m),
+            }
+        }
+        self.pending.push(p);
+    }
+
+    /// Renvoie leurs restrictions à tous les postes de la séance, sans
+    /// retour à l'enseignant.
+    fn resend_restrictions(&mut self, now: u64) {
+        for m in self.session_targets(&[]) {
+            if self.online.contains_key(&m) {
+                if let Some(cmd) = self.restrict_cmd(&m, now) {
+                    self.send(Target::Members(vec![m]), cmd);
+                }
+            }
+        }
+    }
+
+    fn journal(&mut self, action: &str, members: &[MemberId], now: u64) {
+        let Some(s) = &self.session else { return };
+        let target = if members.is_empty() {
+            "toute la salle".to_string()
+        } else {
+            members.iter().map(|m| self.station_name(m)).collect::<Vec<_>>().join(", ")
+        };
+        let e = JournalEntry { at_ms: now, teacher: s.teacher.clone(), room: self.room_name(&s.room), session: s.id.clone(), target, action: action.into() };
+        if let Err(err) = self.store.append_journal(&e) {
+            log::error!("journal des restrictions impossible à écrire : {err:#}");
+        }
+    }
+
+    /// Met en pause l'écran des postes, avec un message, ou la lève
+    /// (`None`) (ECRAN-1 à ECRAN-3). Un message vide donne le message par
+    /// défaut (ECRAN-2).
+    pub fn set_pause(&mut self, members: &[MemberId], message: Option<String>, now: u64) -> Result<()> {
+        let teacher = self.session.as_ref().map(|s| s.teacher.clone()).unwrap_or_default();
+        let message = message.map(|m| m.trim().to_string()).map(|m| if m.is_empty() { format!("Écran mis en pause par {teacher}.") } else { m });
+        let label = if message.is_some() { "Écran mis en pause" } else { "Écran repris" };
+        self.restrict(label.into(), members, now, |r| r.pause.set(members, message))
+    }
+
+    /// Filtrage web des postes, ou sa levée (`None`) (WEB-1, WEB-3).
+    pub fn set_web(&mut self, members: &[MemberId], policy: Option<WebPolicy>, now: u64) -> Result<()> {
+        let policy = match policy {
+            Some(WebPolicy::Allow { sites }) => Some(WebPolicy::Allow { sites: sites_list(&sites)? }),
+            Some(WebPolicy::Block { sites }) => Some(WebPolicy::Block { sites: sites_list(&sites)? }),
+            other => other,
+        };
+        let label = match &policy {
+            None => "Filtrage web levé".to_string(),
+            Some(WebPolicy::Allow { sites }) => format!("Filtrage web : liste d'autorisation ({})", sites_text(sites)),
+            Some(WebPolicy::Block { sites }) => format!("Filtrage web : liste de blocage ({})", sites_text(sites)),
+            Some(WebPolicy::All) => "Filtrage web : tout bloquer".to_string(),
+        };
+        self.restrict(label, members, now, |r| r.web.set(members, policy))
+    }
+
+    /// Applications interdites des postes ; une liste vide lève
+    /// l'interdiction (APP-2, APP-5).
+    pub fn set_banned_apps(&mut self, members: &[MemberId], apps: Vec<String>, now: u64) -> Result<()> {
+        let apps = names_list(&apps);
+        let label = if apps.is_empty() { "Applications interdites levées".to_string() } else { format!("Applications interdites : {}", apps.join(", ")) };
+        self.restrict(label, members, now, |r| r.apps.set(members, apps))
+    }
+
+    /// Passe la séance en mode examen jusqu'à `end_ms`, avec sa liste
+    /// d'autorisation, ou en sort (`None`) (EXAM-1 à EXAM-3).
+    pub fn set_exam(&mut self, exam: Option<(u64, Vec<String>)>, now: u64) -> Result<()> {
+        let s = self.session.as_ref().ok_or_else(|| anyhow!("Le mode examen n'existe que pendant une séance."))?;
+        let exam = match exam {
+            Some((end_ms, sites)) => {
+                ensure!(end_ms > now + 60_000, "L'heure de fin de l'examen doit être dans le futur.");
+                ensure!(end_ms <= s.end_ms, "Le mode examen s'arrête au plus tard à la fin de la séance.");
+                let sites: Vec<String> = sites.iter().map(|x| normalize_site(x).ok_or_else(|| anyhow!("« {} » n'est pas un nom de site.", x.trim()))).collect::<Result<_>>()?;
+                Some(ExamState { end_ms, sites: dedup(sites) })
+            }
+            None => None,
+        };
+        let label = match (&exam, s.restrictions.exam.is_some()) {
+            (None, _) => "Mode examen désactivé",
+            (Some(_), false) => "Mode examen activé",
+            (Some(_), true) => "Mode examen modifié",
+        };
+        self.restrict(label.into(), &[], now, |r| r.exam = exam)
+    }
+
+    /// « Annuler » la dernière restriction (RETOUR-3).
+    pub fn undo(&mut self, id: u64, now: u64) -> Result<()> {
+        let (last, before) = self.undo.take().ok_or_else(|| anyhow!("Il n'y a plus rien à annuler."))?;
+        if last != id {
+            self.undo = Some((last, before));
+            bail!("Une autre action a eu lieu depuis : celle-ci ne peut plus être annulée.");
+        }
+        let s = self.session.as_mut().ok_or_else(|| anyhow!("Aucune séance ouverte."))?;
+        s.restrictions = before;
+        self.save_session();
+        self.journal("Annulation de la dernière restriction", &[], now);
+        let targets = self.session_targets(&[]);
+        self.send_restrictions("Action annulée".into(), targets, now, None);
+        Ok(())
+    }
+
+    /// Demande à un poste ses applications ouvertes (APP-1).
+    pub fn list_apps(&mut self, member: &str) -> Result<()> {
+        ensure!(self.online.get(member).is_some_and(|o| o.session.is_some()), "Ce poste n'est pas dans la séance.");
+        self.send(Target::Members(vec![member.into()]), Command::ListApps);
+        Ok(())
+    }
+
+    /// Ferme une application d'un poste ; l'élève en est prévenu (APP-1).
+    pub fn close_app(&mut self, member: &str, app: &str, now: u64) -> Result<()> {
+        ensure!(self.online.get(member).is_some_and(|o| o.session.is_some()), "Ce poste n'est pas dans la séance.");
+        let name = self.apps.get(member).and_then(|l| l.iter().find(|a| a.id == app)).map(|a| a.name.clone()).unwrap_or_else(|| app.into());
+        let station = self.station_name(member);
+        self.journal(&format!("Application fermée : {name}"), &[member.to_string()], now);
+        let mut p = Pending::new(format!("Fermer {name}"), now + ACK_TIMEOUT_MS);
+        p.done_text = Some(format!("{name} fermée sur le {station}"));
+        let id = self.send(Target::Members(vec![member.into()]), Command::CloseApp { app: app.into() });
+        p.ids.insert(id, member.into());
+        self.pending.push(p);
+        if let Some(l) = self.apps.get_mut(member) {
+            l.retain(|a| a.id != app);
+        }
+        Ok(())
+    }
+
+    // --- Listes de l'enseignant (WEB-4, APP-4) -----------------------------
+
+    /// Enregistre une liste de sites ; une liste du même nom est remplacée.
+    pub fn save_site_list(&mut self, name: &str, sites: &[String]) -> Result<()> {
+        let name = name.trim();
+        ensure!(!name.is_empty(), "Donnez un nom à la liste.");
+        let sites = sites_list(sites)?;
+        self.lists.sites.retain(|l| l.name.to_lowercase() != name.to_lowercase());
+        self.lists.sites.push(SiteList { name: name.into(), sites });
+        self.lists.sites.sort_by_key(|l| l.name.to_lowercase());
+        self.save_lists();
+        Ok(())
+    }
+
+    pub fn delete_site_list(&mut self, name: &str) {
+        self.lists.sites.retain(|l| l.name != name);
+        self.save_lists();
+    }
+
+    pub fn save_app_list(&mut self, name: &str, apps: &[String]) -> Result<()> {
+        let name = name.trim();
+        ensure!(!name.is_empty(), "Donnez un nom à la liste.");
+        let apps = names_list(apps);
+        ensure!(!apps.is_empty(), "La liste ne nomme aucune application.");
+        self.lists.apps.retain(|l| l.name.to_lowercase() != name.to_lowercase());
+        self.lists.apps.push(AppList { name: name.into(), apps });
+        self.lists.apps.sort_by_key(|l| l.name.to_lowercase());
+        self.save_lists();
+        Ok(())
+    }
+
+    pub fn delete_app_list(&mut self, name: &str) {
+        self.lists.apps.retain(|l| l.name != name);
+        self.save_lists();
+    }
+
+    fn save_lists(&mut self) {
+        if let Err(e) = self.store.save_lists(&self.lists) {
+            log::error!("enregistrement des listes impossible : {e:#}");
+            self.notice("Les listes n'ont pas pu être enregistrées", Some(format!("{e:#}")), true);
+        }
+    }
+
     // --- Actions sur les postes ------------------------------------------
 
     /// « Identifier » (SALLE-4) : chaque poste affiche le numéro de sa
@@ -448,14 +813,7 @@ impl Engine {
             .map(|s| (s.member.clone(), s.number))
             .collect();
         ensure!(!targets.is_empty(), "Aucun poste dans cette salle.");
-        let mut p = Pending {
-            label: "Identifier".into(),
-            ids: BTreeMap::new(),
-            acked: BTreeSet::new(),
-            refused: vec![],
-            offline: vec![],
-            deadline_ms: now + ACK_TIMEOUT_MS,
-        };
+        let mut p = Pending::new("Identifier", now + ACK_TIMEOUT_MS);
         for (member, number) in targets {
             if self.online.contains_key(&member) {
                 let id = self.send(
@@ -479,6 +837,17 @@ impl Engine {
         if self.session.as_ref().is_some_and(|s| now >= s.end_ms + MARGIN_MS) {
             let _ = self.close_session(now, true);
             changed = true;
+        }
+        // Fin du mode examen à son heure (EXAM-3) ; les postes la
+        // connaissent aussi et n'attendent pas la console.
+        if let Some(s) = self.session.as_mut() {
+            if s.restrictions.exam.as_ref().is_some_and(|e| now >= e.end_ms) {
+                s.restrictions.exam = None;
+                self.save_session();
+                self.resend_restrictions(now);
+                self.notice("Le mode examen est terminé", Some("Son heure de fin est atteinte.".into()), false);
+                changed = true;
+            }
         }
         let (done, waiting): (Vec<_>, Vec<_>) = std::mem::take(&mut self.pending)
             .into_iter()
@@ -510,15 +879,24 @@ impl Engine {
             .iter()
             .chain(p.ids.values().filter(|m| !p.acked.contains(*m) && !p.refused.iter().any(|(r, _)| r == *m)))
             .collect();
-        let mut text = format!("{} : envoyé à {}", p.label, plural(p.acked.len(), "poste"));
-        if !unreachable.is_empty() {
-            let names: Vec<String> = unreachable.iter().map(|m| self.station_name(m)).collect();
-            text += &format!(" · {} ({})", plural(unreachable.len(), "injoignable"), names.join(", "));
-        }
         let detail = (!p.refused.is_empty()).then(|| {
             p.refused.iter().map(|(m, why)| format!("{} : {why}", self.station_name(m))).collect::<Vec<_>>().join(" · ")
         });
-        Notice { text, detail, warning: !unreachable.is_empty() || !p.refused.is_empty() }
+        let warning = !unreachable.is_empty() || !p.refused.is_empty();
+        if let (Some(done), false) = (&p.done_text, warning) {
+            return Notice { text: done.clone(), detail: None, warning, undo: p.undo };
+        }
+        let mut text = format!("{} : envoyé à {}", p.label, plural(p.acked.len(), "poste"));
+        if !unreachable.is_empty() {
+            let mut names: Vec<String> = unreachable.iter().map(|m| self.station_name(m)).collect();
+            names.sort();
+            if p.deferred {
+                text += &format!(" · {} en attente ({}), appliqué à son retour", unreachable.len(), names.join(", "));
+            } else {
+                text += &format!(" · {} ({})", plural(unreachable.len(), "injoignable"), names.join(", "));
+            }
+        }
+        Notice { text, detail, warning, undo: p.undo }
     }
 
     /// « poste 07 », ou le libellé d'un poste hors des salles connues.
@@ -575,6 +953,7 @@ impl Engine {
                         Some(o) if o.session.is_some() && o.session == session_id => StationState::InSession,
                         Some(_) => StationState::On,
                     };
+                    let r = self.session.as_ref().filter(|x| x.room == r.id).map(|x| &x.restrictions);
                     StationView {
                         member: s.member.clone(),
                         number: format!("{:02}", s.number),
@@ -583,6 +962,13 @@ impl Engine {
                         state,
                         screen: o.map(|o| o.screen.clone()).unwrap_or_default(),
                         os: o.map(|o| o.presence.info.os.clone()),
+                        kind: o.map(|o| o.presence.info.kind),
+                        mode: o.map(|o| o.presence.info.mode),
+                        pause: r.and_then(|r| r.pause.get(&s.member).clone()),
+                        web: r.and_then(|r| r.web.get(&s.member).clone()),
+                        banned_apps: r.map(|r| r.apps.get(&s.member).clone()).unwrap_or_default(),
+                        web_state: o.map(|o| o.web.clone()).unwrap_or_default(),
+                        apps: self.apps.get(&s.member).cloned(),
                     }
                 })
                 .collect(),
@@ -597,6 +983,10 @@ impl Engine {
             max_end_ms: s.opened_at_ms + MAX_DURATION_MS,
             margin_ms: MARGIN_MS,
             screens_on: s.screens,
+            pause_all: s.restrictions.pause.all.clone(),
+            web_all: s.restrictions.web.all.clone(),
+            apps_all: s.restrictions.apps.all.clone(),
+            exam: s.restrictions.exam.as_ref().map(|e| ExamView { end_ms: e.end_ms, sites: e.sites.clone() }),
         });
         let closure = self.closure.as_ref().map(|c| {
             let names = |st: Restore| -> Vec<String> {
@@ -623,6 +1013,23 @@ impl Engine {
             session,
             closure,
             refused: self.refused.iter().cloned().collect(),
+            alerts: self
+                .alerts
+                .iter()
+                .map(|e| {
+                    let name = self.station_name(&e.member);
+                    let (until_ms, text) = match e.lost {
+                        None => (None, format!("{name} : le filtrage web a été coupé sur le poste.")),
+                        Some(None) => (None, format!("{name} : connexion perdue. Si l'agent a été arrêté, ses restrictions ne s'appliquent plus.")),
+                        Some(Some(t)) => (
+                            Some(t),
+                            format!("{name} : connexion perdue, puis revenu. Si l'agent avait été arrêté, ses restrictions ne s'appliquaient plus entre-temps."),
+                        ),
+                    };
+                    Alert { at_ms: e.at_ms, until_ms, text }
+                })
+                .collect(),
+            lists: self.lists.clone(),
             limits: Limits {
                 default_duration_ms: DEFAULT_DURATION_MS,
                 max_duration_ms: MAX_DURATION_MS,
@@ -677,7 +1084,7 @@ mod tests {
     }
 
     fn status(e: &mut Engine, member: &str, session: Option<&str>) {
-        let msg = AgentMsg::Status { session: session.map(Into::into), screen: ScreenState::Off };
+        let msg = AgentMsg::Status { session: session.map(Into::into), screen: ScreenState::Off, web: WebState::Off };
         e.handle(ToConsole::FromAgent { from: member.into(), msg }, T0);
     }
 
@@ -811,5 +1218,151 @@ mod tests {
         let n = e.take_notices();
         assert_eq!(n[0].text, "Identifier : envoyé à 1 poste · 1 injoignable (poste 02)");
         assert!(n[0].warning);
+    }
+
+    /// Restrictions envoyées à chaque poste, dans l'ordre.
+    fn restricts(rec: &Recorder) -> Vec<(MemberId, Restrictions)> {
+        rec.take()
+            .into_iter()
+            .filter_map(|(to, cmd)| match (to, cmd) {
+                (Target::Members(m), Command::Restrict { restrictions, .. }) => Some((m[0].clone(), restrictions)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn in_session(e: &mut Engine, members: &[&str]) -> SessionId {
+        for m in members {
+            let p = presence(e, m);
+            e.handle(ToConsole::Online { agent: p }, T0);
+        }
+        if e.session.is_none() {
+            e.open_session(T0 + DEFAULT_DURATION_MS, T0).unwrap();
+        }
+        let sid = e.session.clone().unwrap().id;
+        for m in members {
+            status(e, m, Some(&sid));
+        }
+        sid
+    }
+
+    #[test]
+    fn pause_reaches_the_room_then_newcomers_and_can_be_undone() {
+        let (mut e, rec, dir) = engine();
+        in_session(&mut e, &["a", "b"]);
+        rec.take();
+
+        // Toute la salle, message par défaut (ECRAN-2).
+        e.set_pause(&[], Some("  ".into()), T0).unwrap();
+        let sent = restricts(&rec);
+        assert_eq!(sent.len(), 2);
+        assert!(sent.iter().all(|(_, r)| r.pause.as_deref() == Some("Écran mis en pause par M. Durand.")));
+
+        // Un poste qui rejoint la séance reçoit la pause de la salle.
+        let p = presence(&e, "c");
+        e.handle(ToConsole::Online { agent: p }, T0);
+        let late = restricts(&rec);
+        assert_eq!(late, vec![("c".to_string(), Restrictions { pause: Some("Écran mis en pause par M. Durand.".into()), ..Default::default() })]);
+
+        // Reprise d'un seul poste : les autres restent en pause.
+        e.set_pause(&["b".into()], None, T0).unwrap();
+        assert_eq!(restricts(&rec), vec![("b".to_string(), Restrictions::default())]);
+        let v = e.view().room.unwrap();
+        let paused: Vec<bool> = v.stations.iter().map(|s| s.pause.is_some()).collect();
+        assert_eq!(paused, vec![true, false, true]);
+
+        // Retour poste par poste, avec « Annuler » (RETOUR-1, RETOUR-3).
+        let ids: Vec<u64> = e.pending.last().unwrap().ids.keys().copied().collect();
+        e.handle(ToConsole::FromAgent { from: "b".into(), msg: AgentMsg::Ack { id: ids[0], ok: true, detail: None } }, T0);
+        e.tick(T0 + 10);
+        let n = e.take_notices().pop().unwrap();
+        assert_eq!(n.text, "Écran repris : envoyé à 1 poste");
+        e.undo(n.undo.unwrap(), T0).unwrap();
+        assert!(e.view().room.unwrap().stations.iter().all(|s| s.pause.is_some()));
+        assert!(e.undo(n.undo.unwrap(), T0).is_err(), "une seule annulation");
+
+        // Chaque restriction est consignée (MAIT-4).
+        let journal = std::fs::read_to_string(dir.join("journal.jsonl")).unwrap();
+        assert_eq!(journal.lines().count(), 3);
+        assert!(journal.contains(r#""target":"poste 02","action":"Écran repris""#), "{journal}");
+    }
+
+    #[test]
+    fn absent_stations_get_restrictions_on_return() {
+        let (mut e, rec, _) = engine();
+        in_session(&mut e, &["a", "b"]);
+        e.handle(ToConsole::Offline { member: "b".into() }, T0);
+        rec.take();
+        e.set_web(&[], Some(WebPolicy::Allow { sites: vec!["https://www.Wikipedia.org/wiki".into()] }), T0).unwrap();
+        let sent = restricts(&rec);
+        assert_eq!(sent.len(), 1);
+        assert_eq!(sent[0].1.web, Some(WebPolicy::Allow { sites: vec!["wikipedia.org".into()] }));
+        e.tick(T0 + ACK_TIMEOUT_MS);
+        let n = e.take_notices().pop().unwrap();
+        assert_eq!(n.text, "Filtrage web : liste d'autorisation (wikipedia.org) : envoyé à 0 poste · 2 en attente (poste 01, poste 02), appliqué à son retour");
+
+        // Au retour, le poste reçoit séance puis restrictions (RESTR-2).
+        let p = presence(&e, "b");
+        e.handle(ToConsole::Online { agent: p }, T0 + 1000);
+        assert_eq!(restricts(&rec)[0].1.web, Some(WebPolicy::Allow { sites: vec!["wikipedia.org".into()] }));
+        assert!(e.set_web(&[], Some(WebPolicy::Block { sites: vec!["pas un site".into()] }), T0).is_err());
+    }
+
+    #[test]
+    fn exam_ends_on_time_and_never_after_the_session() {
+        let (mut e, rec, _) = engine();
+        in_session(&mut e, &["a"]);
+        e.set_web(&[], Some(WebPolicy::All), T0).unwrap();
+        rec.take();
+        let end = T0 + 30 * 60_000;
+        assert!(e.set_exam(Some((T0 + DEFAULT_DURATION_MS + 1, vec![])), T0).is_err());
+        e.set_exam(Some((end, vec!["moodle.lycee.fr".into()])), T0).unwrap();
+        let r = &restricts(&rec)[0].1;
+        assert_eq!(r.exam, Some(Exam { remaining_ms: 30 * 60_000, sites: vec!["moodle.lycee.fr".into()] }));
+        assert_eq!(r.web, Some(WebPolicy::All), "le filtrage d'avant revient après l'examen");
+
+        // Une séance raccourcie raccourcit l'examen (EXAM-3).
+        e.set_end(T0 + 20 * 60_000, T0).unwrap();
+        let r = restricts(&rec).pop().unwrap().1;
+        assert_eq!(r.exam.unwrap().remaining_ms, 20 * 60_000);
+
+        e.tick(T0 + 20 * 60_000);
+        assert!(e.view().session.unwrap().exam.is_none());
+        assert_eq!(restricts(&rec).pop().unwrap().1.exam, None);
+    }
+
+    #[test]
+    fn leaving_a_restriction_is_reported() {
+        let (mut e, _, _) = engine();
+        let sid = in_session(&mut e, &["a", "b"]);
+        e.set_web(&[], Some(WebPolicy::All), T0).unwrap();
+        e.take_notices();
+        let msg = AgentMsg::Status { session: Some(sid), screen: ScreenState::Off, web: WebState::Escaped };
+        e.handle(ToConsole::FromAgent { from: "a".into(), msg }, T0);
+        assert_eq!(e.take_notices()[0].text, "Poste 01 : sorti du filtrage web");
+        e.handle(ToConsole::Offline { member: "b".into() }, T0);
+        let alerts: Vec<String> = e.view().alerts.into_iter().map(|a| a.text).collect();
+        assert_eq!(alerts, vec![
+            "poste 02 : connexion perdue. Si l'agent a été arrêté, ses restrictions ne s'appliquent plus.".to_string(),
+            "poste 01 : le filtrage web a été coupé sur le poste.".to_string(),
+        ]);
+        // Le poste revient : l'alerte le dit, sans s'ajouter à une autre.
+        let p = presence(&e, "b");
+        e.handle(ToConsole::Online { agent: p }, T0 + 60_000);
+        let a = &e.view().alerts[0];
+        assert_eq!((a.until_ms, e.view().alerts.len()), (Some(T0 + 60_000), 2));
+        assert!(a.text.contains("puis revenu"));
+    }
+
+    #[test]
+    fn lists_follow_the_teacher() {
+        let (mut e, _, dir) = engine();
+        e.save_site_list("TP réseau", &["cisco.com".into(), "https://netacad.com/".into()]).unwrap();
+        e.save_site_list("tp RÉSEAU", &["cisco.com".into()]).unwrap();
+        e.save_app_list("Jeux", &["Minecraft".into(), " minecraft ".into(), "Steam".into()]).unwrap();
+        let again = Engine::new(Store::new(dir), T0).unwrap();
+        let l = again.view().lists;
+        assert_eq!(l.sites, vec![SiteList { name: "tp RÉSEAU".into(), sites: vec!["cisco.com".into()] }]);
+        assert_eq!(l.apps[0].apps, vec!["Minecraft", "Steam"]);
     }
 }

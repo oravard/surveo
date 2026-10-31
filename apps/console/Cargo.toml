@@ -36,3 +36,4 @@ surveo-platform.workspace = true
 
 [dev-dependencies]
 surveo-agent = { path = "../agent" }
+tokio = { workspace = true, features = ["io-util"] }

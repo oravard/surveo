@@ -8,11 +8,15 @@ import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { ConsoleView } from '$shared/bindings/ConsoleView';
 import type { Notice } from '$shared/bindings/Notice';
 import type { Thumb } from '$shared/bindings/Thumb';
+import type { StationView } from '$shared/bindings/StationView';
 
-export type Toast = Notice & { id: number; undo?: () => void };
+export type Toast = Omit<Notice, 'undo'> & { id: number; undo?: () => void };
 
 /** Dialogue ouvert dans la console. */
 export type DialogKind = 'open' | 'close' | 'room-new' | 'room-edit' | 'package' | null;
+
+/** Fenêtre d'action ouverte au-dessus de la barre d'actions. */
+export type PopKind = 'pause' | 'more' | 'web' | 'apps' | 'open-apps' | 'exam' | null;
 
 export const ui = $state({
   view: null as ConsoleView | null,
@@ -20,10 +24,19 @@ export const ui = $state({
   toasts: [] as Toast[],
   /** Poste en cours de placement sur le plan (SALLE-3). */
   placing: null as string | null,
+  pop: null as PopKind,
 });
 
 /** Postes sélectionnés (SEL-1). */
 export const selection = new SvelteSet<string>();
+
+/** Postes visés par une action : la sélection, ou toute la salle (SEL-2),
+ * auquel cas le cœur reçoit une liste vide. */
+export function targets(): { members: string[]; stations: StationView[]; all: boolean } {
+  const stations = ui.view?.room?.stations ?? [];
+  if (selection.size === 0) return { members: [], stations: stations.filter((s) => s.state === 'in_session'), all: true };
+  return { members: [...selection], stations: stations.filter((s) => selection.has(s.member)), all: false };
+}
 /** Dernière miniature de chaque poste, en base 64 (AFF-4). */
 export const thumbs = new SvelteMap<string, string>();
 
@@ -58,7 +71,11 @@ export async function start() {
     for (const m of selection) if (!known.has(m)) selection.delete(m);
   });
   await listen<Thumb>('thumb', (e) => thumbs.set(e.payload.member, e.payload.data));
-  await listen<Notice>('notice', (e) => toast(e.payload, e.payload.warning ? 9000 : 6000));
+  await listen<Notice>('notice', (e) => {
+    const { undo, ...n } = e.payload;
+    // « Annuler » pendant quelques secondes (RETOUR-3).
+    toast({ ...n, undo: undo === null ? undefined : () => call('undo', { id: undo }) }, n.warning ? 9000 : 8000);
+  });
   ui.view = await invoke<ConsoleView>('state');
   setInterval(() => (ui.now = Date.now()), 15000);
 }

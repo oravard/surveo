@@ -133,7 +133,7 @@ async fn accept_inner(tcp: TcpStream, acceptor: &tokio_rustls::TlsAcceptor, me: 
     let who = format!("{} ({})", credential.cert.member, credential.cert.etab);
     let checked = (|| {
         if v != PROTOCOL_VERSION {
-            bail!("version du protocole incompatible ({v}, attendu {PROTOCOL_VERSION})");
+            bail!("version incompatible (protocole {v}, attendu {PROTOCOL_VERSION}) : installer sur ce poste la même version que la console");
         }
         let peer = credential.verify(trust)?;
         verify_hex(&peer.key, &auth_message("client", &ekm, &my_nonce, &nonce), &sig)

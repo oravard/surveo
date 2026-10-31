@@ -1,12 +1,19 @@
-Surveo {VERSION} — version d'essai « séance minimale »
-=====================================================
+Surveo {VERSION} — version d'essai « séance et maîtrise de la classe »
+=====================================================================
 
-Cette version contient seulement la première tranche de Surveo :
+Cette version contient les deux premières tranches de Surveo :
   - la console de l'enseignant, avec son relais intégré (aucun serveur) ;
   - l'agent des postes élèves ;
   - le plan de la salle, les miniatures des écrans, l'ouverture, la
     prolongation et la clôture d'une séance, le retour des postes à
-    leur état d'origine.
+    leur état d'origine ;
+  - la maîtrise de la classe : écran en pause, filtrage web,
+    applications interdites et fermeture d'une application, mode
+    examen.
+
+Elle remplace la version « séance minimale » : installez-la à la fois
+sur la console et sur tous les postes. Un agent de l'ancienne version
+est refusé par la nouvelle console (« version incompatible »).
 
 Elle fonctionne sur un réseau local, sans Internet. Les exécutables ne
 sont pas encore signés.
@@ -81,6 +88,27 @@ sont pas encore signés.
     l'heure de fin prévue, sur la console comme sur les postes, même
     déconnectés.
 
+  Maîtrise de la classe (sans sélection, une action vaut pour toute la
+  salle ; sinon pour les postes sélectionnés) :
+  - « Pause » : l'écran des postes est recouvert par votre message ;
+    « Reprendre » le rend. Chaque action propose « Annuler ».
+  - « Plus » > « Filtrage web… » : liste d'autorisation, de blocage, ou
+    tout bloquer ; les listes s'enregistrent pour les séances suivantes.
+    Un site bloqué : le navigateur affiche son erreur, et Surveo prévient
+    l'élève par une notification. Vérifier qu'à la fin de la séance le
+    réglage de proxy d'origine du poste est revenu.
+  - « Plus » > « Applications interdites… » : par exemple « Minecraft » ;
+    l'application est fermée dès qu'elle s'ouvre, et l'élève prévenu.
+  - Un seul poste sélectionné, « Plus » > « Applications ouvertes… » :
+    voir ses applications et en fermer une.
+  - « Plus » > « Passer en mode examen… » : seuls les sites indiqués
+    (aucun par défaut) jusqu'à l'heure choisie ; l'élève voit « Séance
+    d'examen en cours jusqu'à … ».
+  - Sur un poste, couper soi-même le proxy dans les réglages : la console
+    signale la sortie de restriction. Arrêter l'agent (gestionnaire des
+    tâches) : le web revient aussitôt sur le poste, et la console le
+    signale ; au redémarrage, le poste revient à son réglage d'origine.
+
 
 4. Limites connues de cette version
 -----------------------------------
@@ -94,6 +122,13 @@ sont pas encore signés.
   - Les postes trouvent la console par une recherche sur le réseau
     local : un réseau séparé (VLAN) ne laisse pas passer cette recherche.
   - Sous Wayland, l'indicateur de séance n'est pas forcément au premier
-    plan ni en haut de l'écran : le bureau décide de sa place.
+    plan ni en haut de l'écran : le bureau décide de sa place. De même,
+    l'écran en pause n'y est pas forcément au premier plan.
+  - Sans droits d'administration, la maîtrise est coopérative : le
+    filtrage ne porte que sur les navigateurs qui suivent le réglage de
+    proxy du système (sous Linux : réglage GNOME, à vérifier sous KDE et
+    COSMIC) ; un élève averti peut quitter l'écran en pause (Alt+Tab).
+  - Windows : filtrage, fermeture d'application et écran en pause sont
+    compilés mais pas encore éprouvés ; c'est le premier essai à faire.
   - Linux : l'agent et la console ont besoin des bibliothèques
     webkit2gtk-4.1 et pipewire (présentes sur Fedora, Ubuntu…).
