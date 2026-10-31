@@ -23,3 +23,10 @@ prototypes/classifieur/runtime/
 prototypes/classifieur/dist/
 prototypes/classifieur/export/.venv/
 prototypes/classifieur/export/__pycache__/
+
+# Espace de travail : artefacts de compilation, interfaces construites, distributions
+/target/
+ui/node_modules/
+ui/dist/
+apps/*/gen/
+/dist/

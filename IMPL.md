@@ -14,7 +14,7 @@ par les identifiants de règles.
 | 1. Maquette | `maquette/console-surveo.html`, validée (SPEC.md, 9.10) | Fait |
 | 2. Prototypes techniques | Lever les risques techniques un par un (ci-dessous) | Fait |
 | 3. Architecture | Composants, protocole, organisation du code, à partir des résultats de la phase 2 | Validée ([Architecture](#architecture)) ; questions ouvertes reportées au développement |
-| 4. Développement | Par incréments complets, en commençant par une séance minimale | À faire |
+| 4. Développement | Par incréments complets, en commençant par une séance minimale | En cours : tranche 1 faite ([1.2](#12-séance-minimale)) |
 
 ### Phase 2 — prototypes techniques
 
@@ -156,7 +156,9 @@ l'agent est **autonome** pendant une coupure.
   terminées, rendus envoyés, rendus en attente d'envoi). Cela satisfait
   RESTR-2, RESTR-3, TP-3 et RENDU-3 sans que le relais ait à mémoriser
   l'état du poste. Rangé dans le dossier utilisateur
-  (`~/.config/surveo`, `%LOCALAPPDATA%\Surveo`).
+  (`~/.local/share/surveo/agent`, `%LOCALAPPDATA%\Surveo\Agent`), avec
+  l'exécutable installé sans droits d'administration ; la console range
+  ses fichiers à côté (`…/console`, `…\Console`).
 - **Console responsable** (celle qui a ouvert la séance, MULTI-2) : tient
   l'état **autoritatif de la séance** — postes joints, noms de la séance,
   restrictions et TP appliqués, ordre de la file d'aide (AIDE-2), rendus
@@ -259,27 +261,38 @@ implémentation par OS (éprouvées par les prototypes `capture` et
 
 ### Organisation du code
 
-Un espace de travail Cargo (workspace) ; les binaires réutilisent des
-crates communes. Noms indicatifs :
+Un espace de travail Cargo à la racine du dépôt ; les prototypes
+(`prototypes/`) en sont exclus. Les applications réutilisent des crates
+communes :
 
-| Crate | Rôle |
-|---|---|
-| `surveo-protocol` | Définition et sérialisation des messages, version du protocole. Partagée par tous. |
-| `surveo-identity` | Clé d'établissement, certificats de membre, défi mutuel, liaison TLS (6.1). |
-| `relay_core` | Moteur de routage du relais (existe, prototype `tauri`). |
-| `surveo-platform` | Capacités par OS (capture, proxy, démarrage, pause, applications) derrière des traits. |
-| `surveo-agent` | Agent du poste élève ; utilise `platform`, `protocol`, `identity`, les classifieurs. |
-| `surveo-relay` | Binaire relais autonome (utilise `relay_core`). |
-| `surveo-console` | Cœur Rust de la console Tauri ; embarque `relay_core` en option. |
+| Crate | Dossier | Rôle |
+|---|---|---|
+| `surveo-protocol` | `crates/` | Messages de contrôle et trames binaires, version du protocole. Partagée par tous. |
+| `surveo-identity` | `crates/` | Clé d'établissement, certificats de membre, paquet de rattachement (6.1). |
+| `surveo-net` | `crates/` | WebSocket sur TLS, authentification mutuelle liée à la session TLS, recherche du relais sur le réseau local. |
+| `surveo-relay-core` | `crates/` | Moteur du relais, autonome ou embarqué dans la console (7.4). |
+| `surveo-platform` | `crates/` | Capacités par OS : capture d'écran, démarrage de session, dossiers. |
+| `surveo-agent` | `apps/agent/` | Agent du poste élève : un cœur sans interface (`lib`) et l'application Tauri (`main`). |
+| `surveo-console` | `apps/console/` | Console : un cœur sans interface (`lib`), l'application Tauri qui embarque le relais (`main`). |
 
-- **Interfaces TypeScript** : console (plan de salle, modes, conduite de
-  séance) et panneau élève. La maquette validée
-  (`maquette/console-surveo.html`) sert de référence. Le cadre TS (Svelte,
-  React…) reste à choisir (questions ouvertes).
-- **Types partagés Rust ↔ TypeScript** : les messages du protocole et les
-  objets d'IPC Tauri doivent exister des deux côtés ; on les **engendre**
-  depuis Rust (par exemple `ts-rs` ou `typeshare`) pour qu'ils restent
-  synchronisés (question ouverte : lequel).
+Le binaire relais autonome (relais d'établissement ou hébergé) viendra
+avec l'étape 8 ; le moteur est déjà le même.
+
+- **Interfaces** : Svelte 5 et TypeScript, construites par Vite, dans
+  `ui/` : un seul projet npm, deux interfaces (`ui/console`,
+  `ui/agent`) et une partie commune (`ui/shared` : charte, icônes de la
+  maquette, polices livrées avec l'application). `npm run build` produit
+  `ui/dist/console` et `ui/dist/agent`, que lisent les `tauri.conf.json` ;
+  il faut donc construire les interfaces avant de compiler les
+  applications.
+- **Types partagés Rust ↔ TypeScript** : engendrés par `ts-rs` dans
+  `ui/shared/bindings/` (`cargo test -p surveo-console export_bindings`),
+  et versionnés.
+- **Construction** : `scripts/build.sh` construit les interfaces, puis
+  l'agent et la console pour Linux et pour Windows (compilés depuis
+  Fedora, cible `x86_64-pc-windows-gnu`), et assemble dans `dist/` une
+  archive par système, avec la notice d'essai (`scripts/LISEZMOI.txt`)
+  et les empreintes SHA-256.
 
 ### Ordre de réalisation (phase 4)
 
@@ -295,7 +308,8 @@ Les premiers builds peuvent être non signés — testables parce que
 l'utilisateur est administrateur de ses postes ; la signature est
 formalisée à l'étape 8 (INST-7).
 
-1. **Séance minimale (et socle)** : mettre en place le workspace et les
+1. **Séance minimale (et socle)** — fait ([1.2](#12-séance-minimale)) :
+   mettre en place le workspace et les
    crates communes (`surveo-protocol`, `surveo-identity`, `relay_core`
    promu hors des prototypes `relais`/`tauri`), puis livrer la première
    tranche utilisable : l'agent se connecte et se place, la console (avec
@@ -344,13 +358,17 @@ s'éclaircira en avançant).
   autonome** (agent + console + relais embarqué), testable en salle sur
   réseau local sans serveur, ne contenant que les fonctionnalités déjà
   faites (demande de l'utilisateur, 30 octobre 2026).
+- 31 octobre 2026, au début de la tranche 1 : interfaces en **Svelte 5**
+  et TypeScript, construites par Vite (choix de l'utilisateur) ; types
+  engendrés par **ts-rs** ; messages de contrôle en **JSON** tant que le
+  débit ne le remet pas en cause (les miniatures, seul flux important,
+  sont en binaire).
 
 ### Questions ouvertes
 
-- Format des messages de contrôle : garder JSON (lisible, souple) ou
-  passer à un format compact (CBOR/MessagePack via `serde`) ?
-- Cadre TypeScript des interfaces (Svelte, React, autre) et outil de
-  génération des types depuis Rust (`ts-rs` vs `typeshare`).
+- Format des messages de contrôle : JSON en tranche 1 ; passer à un
+  format compact (CBOR/MessagePack via `serde`) si une mesure le
+  justifie.
 - Report pendant une déconnexion : la courte file de messages de séance
   est-elle tenue par le relais ou seulement par la console responsable ?
 - Chiffrement de bout en bout consoles ↔ postes : quelle portée en v1,
@@ -462,6 +480,156 @@ d'antivirus sont une condition du déploiement, pas un confort.
   alors afficher que l'écran du poste n'est pas visible).
 - Vue en grand (AFF-3, mode focus) : plus grande taille et plus forte
   cadence à la demande, puis retour à la miniature.
+
+### 1.2 Séance minimale
+
+Première tranche de la phase 4 : un trio agent, console et relais intégré,
+installable et testable en salle sur un réseau local sans serveur. Code
+dans `apps/` et `crates/` (organisation : « Architecture »).
+
+**Règles couvertes** : SALLE-1 à SALLE-4 ; AFF-1, AFF-2 (état et
+libellé), AFF-4 ; SEANCE-1, SEANCE-3 à SEANCE-6 ; REJ-1, REJ-4 ; RESTR-1
+à RESTR-3, RESTR-5 ; AGENT-1, AGENT-2 ; SEL-1, SEL-2, SEL-5 ; RETOUR-1,
+RETOUR-3 à RETOUR-5 ; CONF-1, CONF-3 ; INST-1, INST-3, INST-5, INST-6 ;
+DECOUV-1 (niveaux 1 et 3), DECOUV-2 ; RELAIS-1, RELAIS-4. Hors de la
+tranche : poste personnel (REJ-2, REJ-3, REJ-5, PERSO), noms d'élèves
+(ELEVE), vues liste, mosaïque et focus, plusieurs consoles (SEANCE-2,
+MULTI), affichage du mode de déploiement (MODE-2), détection du pare-feu
+(RELAIS-6).
+
+**La console tient la séance.** Son cœur (`apps/console/src/engine.rs`)
+est synchrone et sans interface : il reçoit les messages du relais, les
+gestes de l'enseignant et l'heure courante, et envoie ses commandes par
+le relais. L'application Tauri l'appelle et publie à l'interface l'état
+complet à chaque changement.
+
+- Ouvrir : la salle choisie et une heure de fin, au plus 4 h plus tard ;
+  une seule séance à la fois. La séance est enregistrée
+  (`seance.json`) : une console relancée la reprend, sauf si son
+  échéance est passée.
+- Chaque poste qui se connecte est ajouté à sa salle s'il est nouveau,
+  avec le numéro suivant, dans « postes à placer ». S'il appartient à la
+  salle de la séance, la console lui envoie aussitôt la séance, et les
+  écrans s'ils sont affichés (REJ-1, RESTR-2, RESTR-3).
+- Prolonger : nouvelle heure de fin, renvoyée à toute la salle, bornée à
+  4 h après l'ouverture ; « Annuler » renvoie l'ancienne heure.
+- Clôturer, ou fin d'elle-même à l'heure de fin plus 10 min : la
+  commande de fin part vers toute la salle ; le récapitulatif liste les
+  postes entrés dans la séance. Un poste connecté est « remis en état »
+  quand il annonce n'être plus dans la séance, « injoignable » au bout
+  de 5 s sans réponse ; un poste injoignable qui revient (redémarré, ou
+  encore dans la séance close, à qui la console renvoie alors la fin)
+  passe à « remis en état ».
+- Retour poste par poste (RETOUR-1) : une action garde l'identifiant de
+  chaque commande envoyée ; au bout de 5 s ou de toutes les réponses, la
+  console affiche « Identifier : envoyé à 23 postes · 1 injoignable
+  (poste 07) ».
+
+Durées (`apps/console/src/lib.rs`) : séance d'1 h par défaut, 4 h au
+plus, marge de 10 min, prolongation de 15 min. Ce sont les propositions
+de SPEC.md, 1.11, encore ouvertes.
+
+**L'agent est autonome** (`apps/agent/src/core.rs`). Il démarre toujours
+hors séance (RESTR-3). La séance lui arrive avec la durée restante, pas
+une heure : il calcule son échéance sur sa propre horloge, insensible à
+un décalage avec la console. Il la quitte de lui-même à l'heure de fin
+plus la marge, connecté ou non (RESTR-1, RESTR-2). Il ne capture l'écran
+que dans une séance dont l'enseignant affiche les écrans, et cesse dès
+que la connexion tombe. Il annonce son état (séance, écran) à la
+connexion et à chaque changement ; la console s'en sert pour se
+resynchroniser. En tranche 1, l'agent ne modifie rien d'autre sur le
+poste que l'affichage de l'indicateur et la capture : le journal de
+remise en état (`sans-admin`, 2.1) viendra avec la première restriction.
+
+**Messages** (`crates/surveo-protocol`) :
+
+| Sens | Messages |
+|---|---|
+| Console → postes | `Session` (séance, enseignant, durée restante, marge), `EndSession`, `Screens` (afficher ou non), `Identify` (numéro, durée) ; chacun avec un identifiant et une adresse : toute la salle, ou des postes |
+| Poste → consoles | `Ack` (réponse à une commande), `Status` (séance, état de l'écran : éteint, en attente, affiché, impossible avec son motif) |
+| Relais → console | `Roster` (postes connectés), `Online` (poste, salle tirée de son certificat, description), `Offline`, `FromAgent`, `Refused` (connexion refusée et son motif) |
+| Poste → relais → console, binaire | miniature JPEG, préfixée par sa nature et, vers la console, par le poste |
+
+**Interface de la console** (`ui/console`) :
+
+- Premier lancement : créer l'établissement (son nom, celui de
+  l'enseignant tel que les élèves le verront). Rejoindre un
+  établissement par appairage viendra avec le chapitre 6.
+- Barre du haut : la salle (et « Nouvelle salle… ») ; « Ouvrir une
+  séance », ou la séance en cours avec son heure de fin, le temps
+  restant, « Prolonger » et « Clôturer » (confirmation qui énonce la
+  portée, RETOUR-4).
+- Plan : une grille de places (colonnes × rangées, réglable). On place
+  un poste en le glissant, ou en cliquant le poste puis sa place ; une
+  place prise donne un échange ; glisser une tuile dans « postes à
+  placer » la retire du plan. La tuile porte le numéro, le libellé,
+  l'état écrit et son icône (ACCES-4), et la miniature quand les écrans
+  sont affichés, ou le motif pour lequel l'écran n'est pas visible.
+- Barre d'actions : « Toute la salle (N postes) » sans sélection, ou la
+  sélection ; « Identifier ». Le menu court d'une tuile : identifier,
+  déplacer, retirer du plan.
+- Panneau : décompte des postes par état, récapitulatif de clôture,
+  adresses du relais intégré, connexions refusées, paquet
+  d'installation de la salle (enregistré par le dialogue du système).
+- Retours d'action et erreurs en bas à droite, avec « Annuler » quand
+  l'action s'y prête.
+
+**Interface de l'agent** (`ui/agent`) : aucune fenêtre hors séance.
+L'indicateur de séance est une barre de 560 × 46 pixels, en haut de
+l'écran, toujours au premier plan, sans bordure ; l'élève peut la
+réduire (150 pixels) ou la déplacer, pas la fermer. « Identifier »
+ouvre au centre de l'écran, pendant 6 s, le numéro de la tuile. Seul cas
+de fenêtre hors séance : l'agent sans fichier de rattachement explique
+qu'il ne peut pas démarrer.
+
+**Tests** (`cargo test`, une trentaine) : certificats et refus
+(`surveo-identity`), trames (`surveo-protocol`), recherche du relais
+(`surveo-net`), capture de démonstration (`surveo-platform`), relais
+réel avec postes en TLS et console embarquée
+(`crates/surveo-relay-core/tests/relay.rs`), moteur de la console
+(placement, séance, prolongation bornée, clôture et injoignables, fin
+d'elle-même, retour d'« identifier »), et la séance de bout en bout
+(`apps/console/tests/seance.rs`) : relais réel, moteur de la console,
+agent réel qui trouve le relais par la recherche locale, s'identifie,
+rejoint la séance, envoie des miniatures, suit la prolongation et
+revient à son état d'origine à la clôture.
+
+**Vérifié dans l'interface réelle** (31 octobre 2026, Fedora 44, écran X
+virtuel, console et quatre agents sur le même poste, pilotés au clic) :
+découverte des postes par la recherche locale ; placement au clic ;
+ouverture : postes « dans la séance » et indicateur « Ce poste est relié
+à la séance de M. Durand jusqu'à 10:40. » ; miniatures de démonstration
+et capture X11 réelle ; prolongation avec « Annuler » ; « Identifier » et
+son retour « envoyé à 3 postes » ; console relancée : séance reprise,
+postes reconnectés en 3 s ; agent relancé : hors séance, puis séance
+rejointe ; clôture avec un poste arrêté brutalement : « poste 03 :
+injoignable, remise en état à son prochain démarrage ou à 11:05 », puis
+« 3 postes remis dans leur état d'origine » à son retour.
+
+Deux défauts trouvés ainsi et corrigés : une fenêtre Tauri non
+redimensionnable reçoit sous X11 une hauteur minimale de 200 pixels
+(l'indicateur est donc redimensionnable, avec un minimum explicite) ; une
+variable `WAYLAND_DISPLAY` présente mais vide faisait passer la capture
+par le portail de la session Wayland (une variable vide compte désormais
+comme absente).
+
+**Limites, à éprouver en salle**
+
+- Windows : agent et console compilés, pas encore lancés. Capture
+  Wayland : code du prototype `capture` (1.1), non revérifié dans
+  l'agent.
+- Sous Wayland, le bureau décide de la place de l'indicateur ; il n'est
+  pas forcément au premier plan.
+- Une seule console : elle détient la clé de l'établissement et l'état
+  des salles. Le plan appartient à la salle (SALLE-2) mais vit dans
+  cette console tant que la configuration n'est pas poussée par le
+  relais (RECONF-4).
+- Qui détient le paquet d'une salle peut y ajouter des postes ; sa
+  révocation viendra avec le chapitre 6.
+- Une console et des agents sur un même poste : l'agent retient
+  l'adresse `127.0.0.1`, inutile ailleurs ; sans conséquence en salle.
+- Les applications se compilent seulement après les interfaces
+  (`ui/dist`).
 
 ## 2. Maîtrise de la classe
 
@@ -703,37 +871,58 @@ accord, mêmes rappels).
 
 ### 6.1 Authentification mutuelle par la clé d'établissement
 
-Éprouvée par le prototype `relais` (7.1), dans
-`prototypes/relais/src/lib.rs`.
+Éprouvée par le prototype `relais` (7.1), réalisée dans
+`crates/surveo-identity` (certificats) et `crates/surveo-net`
+(`handshake.rs`, échange à la connexion).
 
 - **Clé d'établissement** : une paire de clés Ed25519 créée localement
-  (CONF-1). Sa partie publique (identifiant et clé publique) est livrée
-  avec le paquet d'installation (INST-3) ; sa partie privée reste chez le
-  détenteur du rôle établissement.
+  par la console au premier lancement (CONF-1), avec un identifiant tiré
+  du nom (`lycee-jean-moulin-3f9a0c`). Sa partie publique (identifiant,
+  nom, clé publique) est livrée avec chaque paquet de rattachement
+  (INST-3) ; sa partie privée reste dans la console
+  (`etablissement.json`, lisible par son seul propriétaire sous Linux).
 - **Certificat de membre** : chaque relais, console ou agent a sa propre
-  paire de clés Ed25519. L'établissement signe l'ensemble
-  {établissement, membre, rôle, clé publique}.
+  paire de clés Ed25519 et un certificat {version, établissement,
+  membre, rôle, salle, clé publique}. La signature porte sur ces champs
+  sérialisés en JSON dans un ordre fixe, précédés d'une étiquette
+  (`surveo-cert-v1`). La console émet, à la création de l'établissement,
+  son propre certificat et celui de son relais intégré.
+- **Paquet de rattachement** (INST-2, INST-3) : la console émet pour une
+  salle une clé d'installation, de rôle « installation », limitée à
+  cette salle et signée par l'établissement. Au premier démarrage,
+  l'agent crée sa paire de clés et signe lui-même son certificat de
+  poste avec cette clé. Il présente ensuite les deux certificats : le
+  relais vérifie que l'installation est signée par l'établissement, que
+  le poste l'est par l'installation, et que leurs salles concordent. Le
+  poste rejoint ainsi son établissement et sa salle sans saisie et sans
+  réseau ; la salle d'un poste vient de son certificat, jamais de ce
+  qu'il déclare. Une clé d'installation ne peut ni se connecter, ni
+  certifier autre chose qu'un poste.
 - **Échange à la connexion**, après la négociation TLS :
-  1. le relais envoie son certificat et un défi aléatoire ;
+  1. le relais envoie la version du protocole, son certificat et un défi
+     aléatoire ;
   2. le client vérifie le certificat du relais avec la clé publique de
-     l'établissement, puis renvoie son certificat, son propre défi et sa
-     signature du défi du relais ;
-  3. le relais vérifie le certificat et la signature du client, puis
-     signe le défi du client ;
+     l'établissement, puis renvoie sa version, son certificat, son propre
+     défi, sa signature du défi du relais et, pour un poste, sa
+     description (libellé, système, version, type, mode) ;
+  3. le relais vérifie la version, le certificat et la signature du
+     client, puis signe le défi du client ;
   4. le client vérifie cette signature.
 - **Liaison à la session TLS** : chaque signature porte aussi sur une
   valeur exportée de la session TLS (export de clé, étiquette
-  `EXPORTER-surveo-proto-v0`). Un intermédiaire qui ouvrirait deux
-  sessions TLS distinctes ne pourrait pas faire accepter une signature
-  d'une session sur l'autre. Le certificat TLS du relais peut donc rester
-  auto-signé : la confiance vient de la clé d'établissement, pas d'une
-  autorité de certification.
+  `EXPORTER-surveo-v1`). Un intermédiaire qui ouvrirait deux sessions
+  TLS distinctes ne pourrait pas faire accepter une signature d'une
+  session sur l'autre. Le certificat TLS du relais reste auto-signé,
+  engendré à chaque démarrage : la confiance vient de la clé
+  d'établissement, pas d'une autorité de certification.
 - **Refus** : un membre d'un autre établissement, un certificat non
-  signé par l'établissement ou une signature invalide entraînent un
-  refus explicite, journalisé par le relais (CONF-3).
+  signé, un poste qui aurait changé de salle, une autre version du
+  protocole entraînent un refus explicite, journalisé par le relais et
+  signalé à la console (« Connexions refusées », CONF-3).
 
-Non éprouvé à ce stade : le retrait d'une console (PAIR-5), le code
-d'appairage (PAIR-1) et la conservation de la clé d'établissement.
+Pas encore réalisé : le retrait d'une console (PAIR-5), le code
+d'appairage (PAIR-1), la révocation d'un paquet de rattachement, la
+sauvegarde de la clé d'établissement.
 
 ## 7. Déploiement et relais
 
@@ -1003,3 +1192,80 @@ SPEC.md (INST-7 et la décision datée du 7.9 : binaires signés,
 reconnaissance par signature, réputation, documentation et exclusions de
 l'établissement, jamais par contournement). La vérification au vrai
 certificat reste à mener au jalon crédibilité (VISION.md §5).
+
+### 7.4 Relais, découverte et installation de l'agent
+
+Réalisés pour la séance minimale (1.2).
+
+**Relais** (`crates/surveo-relay-core`), repris du prototype `relais`
+avec ce que celui-ci laissait « à reprendre » :
+
+- Il écoute sur le port TCP 47824, ou sur un port libre s'il est pris.
+  Il accepte les consoles et les postes de son établissement, et route :
+  une commande de console vers toute la salle visée ou les postes
+  désignés, un message de poste vers toutes les consoles.
+- Files bornées : 256 messages de contrôle par client ; pour les
+  miniatures, seule la plus récente de chaque poste attend d'être remise
+  à une console lente.
+- Ping toutes les 10 s ; un client dont rien n'arrive pendant 30 s est
+  tenu pour parti. Un poste qui se reconnecte remplace son ancienne
+  connexion, sans annonce de départ.
+- La console qui l'embarque s'y attache directement
+  (`Relay::attach_console`) et reçoit les mêmes trames qu'une console
+  distante, sans passer par le réseau.
+
+**Découverte** (`crates/surveo-net/src/discovery.rs`, DECOUV-1) : l'agent
+essaie le dernier relais joint (`relais.json`), puis les adresses que la
+console a inscrites dans le paquet, puis une recherche sur le réseau
+local : il diffuse un datagramme UDP (port 47823) portant l'identifiant de
+son établissement, sur l'adresse de diffusion de chacune de ses
+interfaces, la diffusion générale et l'interface locale. Le relais de cet
+établissement répond directement, avec son port. Le poste n'écoute
+jamais : la réponse à un envoi passe les pare-feux. Un relais trouvé n'est
+suivi que s'il s'authentifie au nom de l'établissement (DECOUV-2). Les
+tentatives suivent un délai croissant de 1 à 10 s. Les niveaux 2
+(indication publiée sur le réseau de l'établissement) et 4 (annuaire de
+l'offre hébergée) ne sont pas faits.
+
+**Installation de l'agent** (`apps/agent/src/setup.rs`, sans droits
+d'administration) : lancé depuis un dossier qui contient
+`surveo-rattachement.json`, l'agent se copie, avec le paquet et
+`WebView2Loader.dll` sous Windows, dans son dossier
+(`%LOCALAPPDATA%\Surveo\Agent`, `~/.local/share/surveo/agent`),
+s'inscrit au démarrage de session (clé `Run` de l'utilisateur, fichier
+`~/.config/autostart/surveo-agent.desktop`) et se relance depuis là. Un
+verrou (`agent.lock`, qui porte le numéro du processus) garantit un seul
+agent par compte. `--desinstaller` arrête l'agent en cours, retire
+l'inscription et efface le dossier, donc le rattachement (INST-5) ; sous
+Windows, l'effacement est différé de quelques secondes quand l'exécutable
+installé se désinstalle lui-même. Options d'essai : `--sur-place` (sans
+installation), `--dossier` (plusieurs agents sur un même poste),
+`--ecran-factice N` (miniatures de démonstration).
+
+
+## 9. Interface et ergonomie
+
+### 9.1 Charte visuelle
+
+La charte est celle de la maquette validée (`maquette/console-surveo.html`),
+reprise par les interfaces dans `ui/shared/base.css` sous forme de
+variables CSS : la maquette et les interfaces partagent les mêmes noms et
+les mêmes valeurs.
+
+- **Couleurs** : palette de GitHub, en thème clair et sombre classique,
+  suivant le réglage du système (ACCES-3). Sombre : fond `#0d1117`,
+  surfaces `#161b22` et `#1c2128`, traits `#30363d`, texte `#e6edf3`,
+  accent bleu `#58a6ff`. Clair : fond `#f6f8fa`, surfaces blanches,
+  accent `#0969da`. Les états ont chacun leur couleur (vert « dans la
+  séance », ambre « aide », rouge « retard ou perte », violet
+  « restriction »), toujours doublée d'une icône et d'un texte
+  (ACCES-4). La barre d'actions et les notifications restent sombres
+  dans les deux thèmes.
+- **Polices** : Atkinson Hyperlegible pour le texte, IBM Plex Mono pour
+  les numéros et les heures, livrées avec l'application.
+- **Icônes** : celles de la maquette, tracées au trait
+  (`ui/shared/Icon.svelte`).
+
+**Décision** (31 octobre 2026, demande de l'utilisateur après les premiers
+essais) : la palette vert-gris d'origine est remplacée par celle de
+GitHub, dans la maquette puis dans les interfaces.

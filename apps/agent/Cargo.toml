@@ -1,0 +1,32 @@
+[package]
+name = "surveo-agent"
+description = "Agent Surveo du poste élève (SPEC.md, chap. 1 et 7)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "surveo_agent"
+path = "src/lib.rs"
+
+[[bin]]
+name = "surveo-agent"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+futures-util.workspace = true
+log = "0.4"
+env_logger = { version = "0.11", default-features = false, features = ["auto-color", "humantime"] }
+tauri.workspace = true
+surveo-protocol.workspace = true
+surveo-identity.workspace = true
+surveo-net.workspace = true
+surveo-platform.workspace = true

@@ -1,0 +1,99 @@
+Surveo {VERSION} — version d'essai « séance minimale »
+=====================================================
+
+Cette version contient seulement la première tranche de Surveo :
+  - la console de l'enseignant, avec son relais intégré (aucun serveur) ;
+  - l'agent des postes élèves ;
+  - le plan de la salle, les miniatures des écrans, l'ouverture, la
+    prolongation et la clôture d'une séance, le retour des postes à
+    leur état d'origine.
+
+Elle fonctionne sur un réseau local, sans Internet. Les exécutables ne
+sont pas encore signés.
+
+
+1. Poste de l'enseignant : la console
+-------------------------------------
+
+  Windows : surveo-console.exe (garder WebView2Loader.dll à côté).
+  Linux   : ./surveo-console
+
+  - Au premier lancement, créez l'établissement (un nom, et votre nom
+    tel que les élèves le verront).
+  - Créez la salle (nom, places par rangée, rangées).
+  - « Paquet d'installation » : enregistrez le fichier
+    surveo-rattachement.json. C'est lui qui rattache les postes à votre
+    établissement et à la salle.
+
+  Pare-feu : la console reçoit les connexions des postes.
+  - Windows demande une autorisation au premier lancement : l'accepter
+    pour les réseaux privés (un mot de passe administrateur peut être
+    demandé).
+  - Linux (firewalld) :
+      sudo firewall-cmd --add-port=47823/udp --add-port=47824/tcp
+    (ajouter --permanent pour garder le réglage).
+
+
+2. Postes élèves : l'agent
+--------------------------
+
+  Copiez dans un même dossier du poste :
+    Windows : surveo-agent.exe, WebView2Loader.dll, surveo-rattachement.json
+    Linux   : surveo-agent, surveo-rattachement.json
+
+  Lancez l'agent. Il s'installe dans le compte de l'utilisateur, sans
+  droits d'administration, s'inscrit au démarrage de la session et
+  tourne aussitôt, sans fenêtre. Le poste apparaît dans la console, dans
+  « Postes à placer » : glissez-le sur le plan, ou cliquez dessus puis
+  sur sa place. « Identifier » affiche son numéro sur son écran.
+
+  Installé dans :
+    Windows : %LOCALAPPDATA%\Surveo\Agent
+    Linux   : ~/.local/share/surveo/agent
+
+  Désinstaller : surveo-agent --desinstaller (lancé depuis n'importe
+  quel dossier). Le poste n'est plus rattaché et rien ne reste.
+
+  Windows : sans signature, SmartScreen avertit au premier lancement
+  (« Informations complémentaires », puis « Exécuter quand même »).
+  Linux sous Wayland : la première fois que l'enseignant affiche les
+  écrans, le poste demande l'accord pour partager l'écran ; l'accord
+  est ensuite retenu.
+
+
+3. Ce qu'il faut essayer
+------------------------
+
+  - Les postes allumés apparaissent « Allumé » ; un poste éteint reste
+    sur le plan, « Éteint ».
+  - « Ouvrir une séance » avec une heure de fin : chaque poste allumé
+    rejoint la séance et affiche « Ce poste est relié à la séance de …
+    jusqu'à … ». Un poste allumé plus tard la rejoint seul.
+  - « Afficher les écrans » : une miniature par seconde sur chaque
+    tuile. Elles ne circulent que pendant que l'option est cochée.
+  - « Prolonger » (+15 min, avec « Annuler »).
+  - Débrancher le réseau d'un poste quelques minutes : il garde la
+    séance, et revient seul quand le réseau revient.
+  - « Clôturer » : les indicateurs disparaissent ; le récapitulatif dit
+    quels postes sont revenus à leur état d'origine et lesquels étaient
+    injoignables.
+  - Ne pas clôturer : la séance se termine d'elle-même 10 minutes après
+    l'heure de fin prévue, sur la console comme sur les postes, même
+    déconnectés.
+
+
+4. Limites connues de cette version
+-----------------------------------
+
+  - Postes de salle seulement (pas de poste personnel, pas de noms
+    d'élèves) ; vue plan seulement.
+  - Une seule console par établissement ; elle détient la clé de
+    l'établissement : la sauvegarder avec le dossier
+      Windows : %LOCALAPPDATA%\Surveo\Console
+      Linux   : ~/.local/share/surveo/console
+  - Les postes trouvent la console par une recherche sur le réseau
+    local : un réseau séparé (VLAN) ne laisse pas passer cette recherche.
+  - Sous Wayland, l'indicateur de séance n'est pas forcément au premier
+    plan ni en haut de l'écran : le bureau décide de sa place.
+  - Linux : l'agent et la console ont besoin des bibliothèques
+    webkit2gtk-4.1 et pipewire (présentes sur Fedora, Ubuntu…).

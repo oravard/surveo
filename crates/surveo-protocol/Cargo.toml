@@ -1,0 +1,16 @@
+[package]
+name = "surveo-protocol"
+description = "Messages échangés entre agents, consoles et relais (IMPL.md, « Protocole »)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+ts-rs = { workspace = true, optional = true }
+
+[features]
+# Engendre les types TypeScript des objets partagés avec les interfaces.
+ts = ["dep:ts-rs"]

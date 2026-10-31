@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "Fenêtres de l'agent : indicateur de séance, identification, erreur de démarrage",
+  "windows": ["indicator", "identify", "error"],
+  "permissions": ["core:default", "core:window:allow-start-dragging"]
+}

@@ -6,9 +6,11 @@ trouvent dans la salle, suivre l'avancement du travail, distribuer et
 ramasser des fichiers, communiquer avec les élèves, reprendre la main
 quand il le faut.
 
-> **État du projet : en conception.** Surveo est en cours de refonte
-> complète à partir d'un premier prototype. Il n'existe pas encore de
-> version utilisable.
+> **État du projet : en développement.** Surveo est en cours de refonte
+> complète à partir d'un premier prototype. Une première version d'essai
+> couvre la séance minimale : plan de salle, miniatures des écrans,
+> ouverture, prolongation et clôture d'une séance, retour des postes à
+> leur état d'origine.
 
 ## Principes
 
@@ -30,6 +32,21 @@ quand il le faut.
 
 - Première version : Windows et Linux.
 - Envisagés ensuite : macOS, ChromeOS.
+
+## Construire
+
+Depuis Linux (Fedora), avec Rust, Node.js, les bibliothèques de
+développement de WebKitGTK et de PipeWire, et la chaîne MinGW pour
+Windows :
+
+```sh
+scripts/build.sh            # Linux et Windows, dans dist/
+scripts/build.sh --linux-seul
+```
+
+Chaque archive contient l'agent, la console (avec son relais intégré) et
+une notice d'essai. Les tests : `cargo test` (après une première
+construction des interfaces, `cd ui && npm ci && npm run build`).
 
 ## Documentation
 

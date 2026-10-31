@@ -1,0 +1,16 @@
+[package]
+name = "surveo-identity"
+description = "Clé d'établissement, certificats de membre et paquet de rattachement (SPEC.md, chap. 6 ; IMPL.md, 6.1)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+ed25519-dalek.workspace = true
+rand.workspace = true
+hex.workspace = true
+surveo-protocol.workspace = true

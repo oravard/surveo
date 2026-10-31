@@ -1,0 +1,64 @@
+// État de l'interface : l'état complet publié par le cœur Rust
+// (événement `state`), les dernières miniatures (`thumb`), les messages
+// passagers (`notice`, plus ceux de l'interface), la sélection et
+// l'horloge.
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+import type { ConsoleView } from '$shared/bindings/ConsoleView';
+import type { Notice } from '$shared/bindings/Notice';
+import type { Thumb } from '$shared/bindings/Thumb';
+
+export type Toast = Notice & { id: number; undo?: () => void };
+
+/** Dialogue ouvert dans la console. */
+export type DialogKind = 'open' | 'close' | 'room-new' | 'room-edit' | 'package' | null;
+
+export const ui = $state({
+  view: null as ConsoleView | null,
+  now: Date.now(),
+  toasts: [] as Toast[],
+  /** Poste en cours de placement sur le plan (SALLE-3). */
+  placing: null as string | null,
+});
+
+/** Postes sélectionnés (SEL-1). */
+export const selection = new SvelteSet<string>();
+/** Dernière miniature de chaque poste, en base 64 (AFF-4). */
+export const thumbs = new SvelteMap<string, string>();
+
+let nextToast = 1;
+
+export function toast(t: Omit<Toast, 'id'>, ms = 6000) {
+  const id = nextToast++;
+  ui.toasts.push({ ...t, id });
+  setTimeout(() => dismiss(id), ms);
+}
+
+export function dismiss(id: number) {
+  ui.toasts = ui.toasts.filter((t) => t.id !== id);
+}
+
+/** Geste de l'enseignant transmis au cœur ; rend `false` en cas d'échec,
+ * après en avoir montré la raison, en français (RETOUR-5). */
+export async function call(cmd: string, args?: Record<string, unknown>): Promise<boolean> {
+  try {
+    await invoke(cmd, args);
+    return true;
+  } catch (e) {
+    toast({ text: String(e), detail: null, warning: true }, 8000);
+    return false;
+  }
+}
+
+export async function start() {
+  await listen<ConsoleView>('state', (e) => {
+    ui.view = e.payload;
+    const known = new Set(e.payload.room?.stations.map((s) => s.member) ?? []);
+    for (const m of selection) if (!known.has(m)) selection.delete(m);
+  });
+  await listen<Thumb>('thumb', (e) => thumbs.set(e.payload.member, e.payload.data));
+  await listen<Notice>('notice', (e) => toast(e.payload, e.payload.warning ? 9000 : 6000));
+  ui.view = await invoke<ConsoleView>('state');
+  setInterval(() => (ui.now = Date.now()), 15000);
+}

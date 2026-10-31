@@ -1,0 +1,62 @@
+/* Charte commune aux interfaces, reprise de la maquette validée
+   (maquette/console-surveo.html ; IMPL.md, 9.1). Polices livrées avec
+   l'application : aucune ressource n'est chargée depuis Internet. */
+@import '@fontsource/atkinson-hyperlegible/400.css';
+@import '@fontsource/atkinson-hyperlegible/700.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/600.css';
+
+:root {
+  --bg: #f6f8fa; --surface: #ffffff; --surface-2: #f0f3f6; --ink: #1f2328; --muted: #59636e; --line: #d1d9e0;
+  --accent: #0969da; --accent-soft: #ddf4ff; --accent-ink: #ffffff;
+  --help: #9a6700; --help-soft: #fff8c5;
+  --late: #cf222e; --late-soft: #ffebe9;
+  --restrict: #8250df; --restrict-soft: #fbefff;
+  --ok: #1a7f37; --ok-soft: #dafbe1;
+  --bar: #24292f; --bar-2: #32383f; --bar-ink: #f0f6fc; --bar-muted: #9198a1;
+  --shadow: 0 1px 2px rgba(31, 35, 40, 0.07), 0 6px 22px rgba(31, 35, 40, 0.07);
+  --sans: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #0d1117; --surface: #161b22; --surface-2: #1c2128; --ink: #e6edf3; --muted: #8b949e; --line: #30363d;
+    --accent: #58a6ff; --accent-soft: #15243a; --accent-ink: #0d1117;
+    --help: #d29922; --help-soft: #2e2412;
+    --late: #f85149; --late-soft: #3a1d1f;
+    --restrict: #bc8cff; --restrict-soft: #2a2141;
+    --ok: #3fb950; --ok-soft: #14301e;
+    --bar: #21262d; --bar-2: #30363d; --bar-ink: #f0f6fc; --bar-muted: #8b949e;
+    --shadow: 0 1px 2px rgba(1, 4, 9, 0.4), 0 6px 22px rgba(1, 4, 9, 0.35);
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.4; }
+button, input, select { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.note { font-size: 13px; color: var(--muted); }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface); font-weight: 700; font-size: 14px;
+  cursor: pointer; color: var(--ink); white-space: nowrap;
+}
+.btn:hover { border-color: var(--muted); }
+.btn:disabled { opacity: 0.55; cursor: default; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn.ghost:hover { background: var(--surface-2); }
+.btn.danger { color: var(--late); border-color: color-mix(in srgb, var(--late) 45%, var(--line)); }
+.btn[aria-pressed='true'] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.field input, .field select {
+  border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; background: var(--surface);
+}
+.field small { color: var(--muted); font-size: 12.5px; }
