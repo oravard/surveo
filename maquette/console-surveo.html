@@ -10,15 +10,15 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <style>
 :root{
-  --bg:#ECF0EC; --surface:#FFFFFF; --surface-2:#F5F8F5; --ink:#1A2421; --muted:#56645F; --line:#D3DBD5;
-  --accent:#2346A3; --accent-soft:#E2E8F7; --accent-ink:#FFFFFF;
-  --help:#9A5A00; --help-soft:#FBEED6;
-  --late:#A3372B; --late-soft:#F8E2DE;
-  --restrict:#5B4790; --restrict-soft:#ECE6F6;
-  --ok:#2B7549; --ok-soft:#DFF0E5;
-  --bar:#1D2824; --bar-2:#2A3732; --bar-ink:#EEF3F0; --bar-muted:#A8B6B0;
+  --bg:#F6F8FA; --surface:#FFFFFF; --surface-2:#F0F3F6; --ink:#1F2328; --muted:#59636E; --line:#D1D9E0;
+  --accent:#0969DA; --accent-soft:#DDF4FF; --accent-ink:#FFFFFF;
+  --help:#9A6700; --help-soft:#FFF8C5;
+  --late:#CF222E; --late-soft:#FFEBE9;
+  --restrict:#8250DF; --restrict-soft:#FBEFFF;
+  --ok:#1A7F37; --ok-soft:#DAFBE1;
+  --bar:#24292F; --bar-2:#32383F; --bar-ink:#F0F6FC; --bar-muted:#9198A1;
   --demo:#7A5200; --demo-bg:#FFF6E2; --demo-line:#D9B25F;
-  --shadow:0 1px 2px rgba(18,28,24,.07),0 6px 22px rgba(18,28,24,.07);
+  --shadow:0 1px 2px rgba(31,35,40,.07),0 6px 22px rgba(31,35,40,.07);
   --sans:'Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   --mono:'IBM Plex Mono',ui-monospace,'Cascadia Mono',Menlo,Consolas,monospace;
   --tw:138px;
@@ -26,28 +26,28 @@
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     color-scheme:dark;
-    --bg:#0F1412; --surface:#171E1B; --surface-2:#1C2521; --ink:#E2EAE5; --muted:#95A39D; --line:#2A3531;
-    --accent:#8FA7F3; --accent-soft:#1E2847; --accent-ink:#0D1324;
-    --help:#EAA53F; --help-soft:#3A2A10;
-    --late:#F0897B; --late-soft:#3E201C;
-    --restrict:#BCA6EA; --restrict-soft:#2A2342;
-    --ok:#6FC492; --ok-soft:#163022;
-    --bar:#26322D; --bar-2:#33413B; --bar-ink:#EEF3F0; --bar-muted:#A8B6B0;
+    --bg:#0D1117; --surface:#161B22; --surface-2:#1C2128; --ink:#E6EDF3; --muted:#8B949E; --line:#30363D;
+    --accent:#58A6FF; --accent-soft:#15243A; --accent-ink:#0D1117;
+    --help:#D29922; --help-soft:#2E2412;
+    --late:#F85149; --late-soft:#3A1D1F;
+    --restrict:#BC8CFF; --restrict-soft:#2A2141;
+    --ok:#3FB950; --ok-soft:#14301E;
+    --bar:#21262D; --bar-2:#30363D; --bar-ink:#F0F6FC; --bar-muted:#8B949E;
     --demo:#F0C46A; --demo-bg:#2B2410; --demo-line:#6E5622;
-    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 22px rgba(0,0,0,.25);
+    --shadow:0 1px 2px rgba(1,4,9,.4),0 6px 22px rgba(1,4,9,.35);
   }
 }
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --bg:#0F1412; --surface:#171E1B; --surface-2:#1C2521; --ink:#E2EAE5; --muted:#95A39D; --line:#2A3531;
-  --accent:#8FA7F3; --accent-soft:#1E2847; --accent-ink:#0D1324;
-  --help:#EAA53F; --help-soft:#3A2A10;
-  --late:#F0897B; --late-soft:#3E201C;
-  --restrict:#BCA6EA; --restrict-soft:#2A2342;
-  --ok:#6FC492; --ok-soft:#163022;
-  --bar:#26322D; --bar-2:#33413B; --bar-ink:#EEF3F0; --bar-muted:#A8B6B0;
+  --bg:#0D1117; --surface:#161B22; --surface-2:#1C2128; --ink:#E6EDF3; --muted:#8B949E; --line:#30363D;
+  --accent:#58A6FF; --accent-soft:#15243A; --accent-ink:#0D1117;
+  --help:#D29922; --help-soft:#2E2412;
+  --late:#F85149; --late-soft:#3A1D1F;
+  --restrict:#BC8CFF; --restrict-soft:#2A2141;
+  --ok:#3FB950; --ok-soft:#14301E;
+  --bar:#21262D; --bar-2:#30363D; --bar-ink:#F0F6FC; --bar-muted:#8B949E;
   --demo:#F0C46A; --demo-bg:#2B2410; --demo-line:#6E5622;
-  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 22px rgba(0,0,0,.25);
+  --shadow:0 1px 2px rgba(1,4,9,.4),0 6px 22px rgba(1,4,9,.35);
 }
 html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.4}
@@ -284,13 +284,13 @@ textarea{width:100%;resize:vertical;min-height:64px}
 /* Toasts */
 .toasts{position:fixed;right:16px;bottom:96px;display:flex;flex-direction:column;gap:8px;z-index:40;max-width:min(440px,calc(100vw - 32px))}
 .toast{background:var(--bar);color:var(--bar-ink);border-radius:10px;padding:10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.25);display:flex;align-items:flex-start;gap:10px;font-size:14px}
-.toast .ic{color:#7fd6a0;margin-top:1px}
+.toast .ic{color:#3FB950;margin-top:1px}
 .toast .tx{flex:1}
 .toast small{display:block;color:var(--bar-muted);font-size:12.5px;margin-top:2px}
 .toast button{background:transparent;border:1px solid var(--bar-muted);color:var(--bar-ink);border-radius:7px;padding:3px 9px;cursor:pointer;font-weight:700;font-size:13px}
 
 /* Dialogue et palette */
-.backdrop{position:fixed;inset:0;background:rgba(10,16,14,.45);display:flex;align-items:flex-start;justify-content:center;padding:12vh 16px 16px;z-index:60}
+.backdrop{position:fixed;inset:0;background:rgba(1,4,9,.55);display:flex;align-items:flex-start;justify-content:center;padding:12vh 16px 16px;z-index:60}
 .dialog{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3);width:min(460px,100%);padding:18px;display:flex;flex-direction:column;gap:12px}
 .dialog h2{margin:0;font-size:18px;text-wrap:balance}
 .dialog p{margin:0;color:var(--muted)}
